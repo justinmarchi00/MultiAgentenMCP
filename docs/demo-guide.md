@@ -6,13 +6,12 @@ Linux/macOS:
 
 ```bash
 cd MultiAgentenMCP
-./scripts/setup_unix.sh
-.venv/bin/python -m pytest
-./scripts/run_unix.sh
+./start-orderflow.sh
 ```
 
-Windows: zuerst `setup-windows.cmd` und danach `start-windows.cmd` ausführen. Alternativ startet
-`docker compose up --build` die gleiche Basisanwendung auf allen unterstützten Plattformen.
+Windows: `start-windows.cmd` doppelt anklicken. Beim ersten Start werden Basisanwendung und MetaGPT
+automatisch eingerichtet. Alternativ startet `docker compose up --build` die Basisanwendung auf
+allen unterstützten Plattformen.
 
 ## Empfohlene Vorführung in sieben Minuten
 

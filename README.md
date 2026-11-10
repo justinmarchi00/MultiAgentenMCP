@@ -58,31 +58,31 @@ auf allen Plattformen unter [http://localhost:8501](http://localhost:8501) errei
 
 1. Python 3.11 von [python.org](https://www.python.org/downloads/) installieren und dabei
    „Add Python to PATH“ aktivieren.
-2. `setup-windows.cmd` doppelt anklicken und die Installation abwarten.
-3. Danach `start-windows.cmd` doppelt anklicken.
+2. `start-windows.cmd` doppelt anklicken.
+3. Beim ersten Start die automatische Einrichtung abwarten und den persönlichen OpenAI-Schlüssel
+   eingeben. Mit Enter kann MetaGPT zunächst übersprungen werden.
 
-Alternativ können beide Dateien aus PowerShell oder der Eingabeaufforderung gestartet werden.
+Bei jedem weiteren Start genügt derselbe Doppelklick. `setup-windows.cmd` ist nur noch eine
+optionale Möglichkeit, die Einrichtung vorab ohne Start der Weboberfläche auszuführen.
 
 ### Linux
 
 ```bash
 cd MultiAgentenMCP
-chmod +x scripts/setup_unix.sh scripts/run_unix.sh
-./scripts/setup_unix.sh
-./scripts/run_unix.sh
+chmod +x start-orderflow.sh
+./start-orderflow.sh
 ```
 
 Unter Ubuntu oder Debian muss Python 3.11 gegebenenfalls vorher über die Paketverwaltung
-installiert werden. Mit `PYTHON=/pfad/zu/python3.11 ./scripts/setup_unix.sh` kann ein bestimmter
-Interpreter ausgewählt werden.
+installiert werden. Der Launcher richtet Basisanwendung und MetaGPT beim ersten Aufruf automatisch
+in zwei getrennten virtuellen Umgebungen ein.
 
 ### macOS
 
 ```bash
 brew install python@3.11
 cd MultiAgentenMCP
-./scripts/setup_unix.sh
-./scripts/run_unix.sh
+./start-orderflow.sh
 ```
 
 Die bisherigen Make-Befehle (`make setup`, `make run`) funktionieren unter macOS und Linux
@@ -103,8 +103,12 @@ Containers erhalten. Beendet wird die Anwendung mit `docker compose down`.
 Der Server lauscht bewusst auf `0.0.0.0`. Dadurch können andere Geräte im selben lokalen Netzwerk
 die Anwendung über `http://IP-DES-RECHNERS:8501` öffnen, sofern die Firewall Port 8501 zulässt.
 
-Falls MetaGPT mit einem echten Sprachmodell getestet werden soll, wird es wegen seiner älteren
-Abhängigkeiten bewusst in einer zweiten virtuellen Umgebung isoliert:
+MetaGPT wird beim ersten nativen Start automatisch in einer zweiten virtuellen Umgebung isoliert
+installiert. Das verhindert Konflikte mit der Webanwendung. Der Launcher übernimmt außerdem den
+persönlichen API-Schlüssel, ohne ihn anzuzeigen, und speichert ihn ausschließlich in der von Git
+ignorierten Datei `config/config2.yaml`.
+
+Die manuelle Einrichtung bleibt für Fehlerdiagnosen möglich:
 
 Linux/macOS:
 
@@ -118,9 +122,8 @@ Windows:
 .\.venv\Scripts\python.exe scripts\setup_metagpt.py
 ```
 
-Danach wird der API-Schlüssel in `config/config2.yaml` eingetragen und die Anwendung erneut
-gestartet. Das Docker-Abbild enthält bewusst nur die vollständig offline nutzbare Basisanwendung;
-für die optionale MetaGPT-Laufzeit wird die native Installation empfohlen.
+Das Docker-Abbild enthält bewusst nur die vollständig offline nutzbare Basisanwendung. Für den
+Ein-Klick-Start einschließlich MetaGPT wird die native Variante empfohlen.
 
 Das Setup kopiert bei Bedarf `config/config2.example.yaml` nach `config/config2.yaml`. Die offizielle
 MetaGPT-Version referenziert zusätzlich einige veraltete oder für diesen Rollen-Workflow nicht
@@ -221,6 +224,7 @@ MultiAgentenMCP/
 │   └── cli.py                 # Kommandozeilen-Demo
 ├── tests/                      # automatisierte Tests
 ├── scripts/                    # Start- und Installationsskripte für Unix und Windows
+├── start-orderflow.sh          # Ein-Klick-Start für Linux und macOS
 ├── streamlit_app.py            # Weboberfläche
 ├── Dockerfile / compose.yaml   # plattformunabhängiger Containerstart
 ├── setup-windows.cmd           # Windows-Installation per Doppelklick

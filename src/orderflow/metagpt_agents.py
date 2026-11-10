@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import subprocess
 from functools import lru_cache
 from pathlib import Path
@@ -24,7 +25,11 @@ def metagpt_configured() -> bool:
     if not config.is_file():
         return False
     content = config.read_text(encoding="utf-8")
-    return "api_key:" in content and "sk-demo-not-configured" not in content
+    match = re.search(r"(?m)^\s*api_key:\s*(\S+)\s*$", content)
+    if match is None:
+        return False
+    value = match.group(1)
+    return value != "sk-demo-not-configured" and "<" not in value
 
 
 @lru_cache(maxsize=1)

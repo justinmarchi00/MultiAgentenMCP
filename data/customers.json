@@ -16,6 +16,11 @@
     "credit_status": "freigegeben",
     "country": "AT",
     "payment_terms_days": 30
+  },
+  "C400": {
+    "name": "Schmitz GmbH",
+    "credit_status": "freigegeben",
+    "country": "DE",
+    "payment_terms_days": 30
   }
 }
-

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Callable
+from datetime import date
 from time import perf_counter
 from typing import Any
 
@@ -17,13 +18,34 @@ from orderflow.models import (
 
 EventCallback = Callable[[WorkflowEvent], None]
 
+DECISION_LABELS = {
+    WorkflowDecision.CONFIRMED: "Auftrag bestätigen",
+    WorkflowDecision.PRODUCTION_REQUIRED: "Interne Produktion erforderlich",
+    WorkflowDecision.PROCUREMENT_REQUIRED: "Externe Beschaffung erforderlich",
+    WorkflowDecision.MANUAL_REVIEW: "Manuelle Prüfung erforderlich",
+}
+
+
+def _format_money(value: Any, currency: str = "EUR") -> str:
+    try:
+        amount = f"{float(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except (TypeError, ValueError):
+        return "nicht ermittelbar"
+    return f"{amount} {currency}"
+
+
+def _format_date(value: Any) -> str:
+    try:
+        return date.fromisoformat(str(value)).strftime("%d.%m.%Y")
+    except ValueError:
+        return "nicht ermittelbar"
+
 
 def _determine_decision(facts: dict[str, Any]) -> tuple[WorkflowDecision, str]:
     customer = facts["customer"]
     stock = facts["stock"]
-    capacity = facts["capacity"]
-    procurement = facts["procurement"]
     price = facts["price"]
+    delivery = facts["delivery"]
 
     if not customer.get("found"):
         return WorkflowDecision.MANUAL_REVIEW, "Kunde wurde nicht gefunden."
@@ -31,22 +53,42 @@ def _determine_decision(facts: dict[str, Any]) -> tuple[WorkflowDecision, str]:
         return WorkflowDecision.MANUAL_REVIEW, "Bonitätsstatus ist nicht freigegeben."
     if "error" in stock or "error" in price:
         return WorkflowDecision.MANUAL_REVIEW, "Produkt- oder Preisdaten sind unvollständig."
-    if stock.get("available"):
+    fulfillment_method = delivery.get("fulfillment_method")
+    requested_date_met = bool(delivery.get("requested_date_met"))
+    if stock.get("available") and fulfillment_method == "stock" and requested_date_met:
         return WorkflowDecision.CONFIRMED, "Bonität und Lagerbestand sind ausreichend."
-    if capacity and capacity.get("possible"):
+    if stock.get("available") and fulfillment_method == "stock":
+        return (
+            WorkflowDecision.MANUAL_REVIEW,
+            "Die Ware ist verfügbar, der angefragte Liefertermin liegt jedoch vor dem "
+            "frühestmöglichen Zusagetermin.",
+        )
+    if fulfillment_method == "production":
+        duration = delivery.get("duration_days", 0)
+        schedule_note = (
+            "Der Wunschtermin kann eingehalten werden."
+            if requested_date_met
+            else "Der Wunschtermin kann nicht eingehalten werden."
+        )
         return (
             WorkflowDecision.PRODUCTION_REQUIRED,
-            "Der Lagerbestand reicht nicht aus, die Fehlmenge kann jedoch produziert werden.",
+            f"Die Fehlmenge kann in {duration} Arbeitstagen produziert werden. {schedule_note}",
         )
-    if procurement and procurement.get("possible"):
+    if fulfillment_method == "procurement":
+        schedule_note = (
+            "Der Wunschtermin kann eingehalten werden."
+            if requested_date_met
+            else "Der Wunschtermin kann nicht eingehalten werden."
+        )
         return (
             WorkflowDecision.PROCUREMENT_REQUIRED,
             "Der Bestand und die interne Kapazität reichen nicht aus; "
-            "die Fehlmenge kann extern beschafft werden.",
+            f"die Fehlmenge kann extern beschafft werden. {schedule_note}",
         )
     return (
         WorkflowDecision.MANUAL_REVIEW,
-        "Weder Lagerbestand noch verfügbare Produktionskapazität reichen aus.",
+        "Kein vollständiger Erfüllungsweg ist automatisch planbar; Termin und Menge "
+        "müssen manuell geprüft werden.",
     )
 
 
@@ -90,7 +132,7 @@ async def run_order_workflow(
 
     await emit(
         1,
-        "Workflow-Orchestrator",
+        "Prozess-Orchestrator",
         "Auftrag annehmen",
         f"Auftrag {order.customer_id}/{order.product_id}/{order.quantity} wurde angenommen.",
     )
@@ -114,7 +156,7 @@ async def run_order_workflow(
     await emit(
         3,
         "Planungs-Agent",
-        "MCP: get_customer",
+        "MCP: Kundendaten abrufen",
         f"Kundenstatus: {customer.get('credit_status', customer.get('error', 'unbekannt'))}.",
         level=EventLevel.SUCCESS if customer.get("found") else EventLevel.WARNING,
         details=customer,
@@ -123,7 +165,7 @@ async def run_order_workflow(
     await emit(
         3,
         "Planungs-Agent",
-        "MCP: check_stock",
+        "MCP: Lagerbestand prüfen",
         (
             f"Bestand ausreichend: {stock.get('current_stock', 0)} Stück verfügbar."
             if stock.get("available")
@@ -137,9 +179,9 @@ async def run_order_workflow(
         await emit(
             3,
             "Planungs-Agent",
-            "MCP: check_capacity",
+            "MCP: Produktionskapazität berechnen",
             (
-                "Die Fehlmenge kann produziert werden."
+                f"Die Fehlmenge kann produziert werden: {capacity.get('calculation', '')}."
                 if capacity.get("possible")
                 else "Die Fehlmenge übersteigt die verfügbare Wochenkapazität."
             ),
@@ -151,7 +193,7 @@ async def run_order_workflow(
         await emit(
             3,
             "Beschaffungs-Agent",
-            "MCP: check_procurement",
+            "MCP: Beschaffung prüfen",
             (
                 f"Externe Beschaffung bei {procurement.get('supplier')} ist möglich."
                 if procurement.get("possible")
@@ -166,9 +208,9 @@ async def run_order_workflow(
     await emit(
         3,
         "Kalkulations-Agent",
-        "MCP: calculate_price",
+        "MCP: Preis berechnen",
         (
-            f"Gesamtpreis: {price.get('total_price')} {price.get('currency', 'EUR')}."
+            f"Gesamtpreis: {_format_money(price.get('total_price'), price.get('currency', 'EUR'))}."
             if "error" not in price
             else price["error"]
         ),
@@ -179,22 +221,31 @@ async def run_order_workflow(
     await emit(
         3,
         "Planungs-Agent",
-        "MCP: calculate_delivery_date",
-        f"Zugesagter Liefertermin: {delivery.get('promised_date', 'nicht ermittelbar')}.",
-        level=EventLevel.SUCCESS if "error" not in delivery else EventLevel.WARNING,
+        "MCP: Liefertermin berechnen",
+        (
+            f"Zugesagter Liefertermin: {_format_date(delivery.get('promised_date'))}."
+            if delivery.get("promised_date")
+            else "Kein belastbarer Liefertermin automatisch ermittelbar."
+        ),
+        level=(
+            EventLevel.SUCCESS
+            if delivery.get("fulfillment_possible") and "error" not in delivery
+            else EventLevel.WARNING
+        ),
         details=delivery,
     )
 
     decision, explanation = _determine_decision(facts)
     result_payload = {
         "order": order.model_dump(mode="json"),
-        "decision": decision.value,
+        "decision": DECISION_LABELS[decision],
         "explanation": explanation,
         **facts,
     }
 
     metagpt_summary = None
     metagpt_used = False
+    metagpt_messages: dict[str, str] = {}
     if use_metagpt:
         await emit(
             4,
@@ -207,6 +258,7 @@ async def run_order_workflow(
 
             review = await run_metagpt_review(result_payload)
             metagpt_summary = review["validation_agent"]
+            metagpt_messages = review
             metagpt_used = True
             for agent_key, label in (
                 ("order_agent", "Auftrags-Agent"),
@@ -256,5 +308,6 @@ async def run_order_workflow(
         processing_seconds=perf_counter() - started,
         metagpt_used=metagpt_used,
         metagpt_summary=metagpt_summary,
+        metagpt_messages=metagpt_messages,
     )
 

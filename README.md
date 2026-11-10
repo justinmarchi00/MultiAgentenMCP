@@ -12,13 +12,19 @@ im Prototyp reale ERP-, CRM-, Lager- und Produktionssysteme.
 ## Funktionen
 
 - Interaktive Streamlit-Weboberfläche mit sichtbarem Workflow
+- Animierte Prozesskette und ein wählbarer Präsentationsmodus
 - Rollenbasierte Agentenkoordination für Auftrag, Planung, Beschaffung und Validierung
 - MCP-Server mit sechs klar definierten Werkzeugen
 - Bonitäts-, Bestands-, Kapazitäts-, Beschaffungs-, Preis- und Lieferterminprüfung
+- Transparente Produktionsdauer aus Rüstzeit, Tageskapazität und Fehlmenge
+- Lokales Anlegen neuer Demo-Kunden und -Produkte über die Weboberfläche
+- Vollständige Kunden- und Produktverwaltung in einem hervorgehobenen Dialogfenster
+- Bestätigungspflichtiges Löschen einschließlich abhängiger Demo-Stammdaten
 - Vier vorbereitete Demoszenarien sowie freie Eingabe
 - Regelbasierte, reproduzierbare Kernentscheidung
-- Optionales MetaGPT-Review zur Erklärung und Plausibilisierung
+- Optionale MetaGPT-Erklärung mit drei getrennt dargestellten Rollen
 - Ereignisprotokoll und strukturierte MCP-Ergebnisse für die Evaluation
+- Durchgängig deutsche Benutzeroberfläche einschließlich übersetzter Ergebnisfelder
 - Automatisierte Tests und GitHub-Actions-Workflow
 
 ## Architektur
@@ -73,16 +79,19 @@ benötigte Komponenten, darunter `lancedb==0.4.0`. Diese werden ausgelassen; ans
 tatsächlich verwendeten Klassen `Action` und `Role` durch einen Importtest geprüft.
 
 Der API-Schlüssel wird ausschließlich in der lokalen MetaGPT-Konfiguration hinterlegt und niemals
-in dieses Repository eingecheckt. In der Weboberfläche kann danach „MetaGPT-Review verwenden“
-aktiviert werden.
+in dieses Repository eingecheckt. In der Weboberfläche kann danach „Erklärung durch MetaGPT
+aktivieren“ ausgewählt werden.
 
 ## Demoablauf
 
 1. `make run` ausführen.
 2. Eines der vorbereiteten Szenarien auswählen.
 3. „Auftrag starten“ anklicken.
-4. Live verfolgen, welcher Agent welches MCP-Werkzeug verwendet.
-5. Entscheidung, Kennzahlen, MCP-Ergebnisse und Agentenprotokoll vergleichen.
+4. Im Präsentationsmodus live verfolgen, welche Rolle welches MCP-Werkzeug verwendet.
+5. Im Bereich „So wurde gerechnet“ die Produktions-, Preis- und Terminformeln erläutern.
+6. Die drei MetaGPT-Rollen Anna, Paul und Vera miteinander vergleichen.
+7. Über „Stammdaten verwalten“ den kompakten Verwaltungsdialog öffnen.
+8. Kunden und Produkte dort anzeigen, anlegen, bearbeiten oder kontrolliert löschen.
 
 | Szenario | Eingabe | Erwartete Entscheidung |
 |---|---|---|
@@ -103,6 +112,23 @@ Ein ausformulierter Vorführungsplan steht im [Demo-Leitfaden](docs/demo-guide.m
 | `check_procurement` | externe Beschaffungsoption | Einkauf/SRM |
 | `calculate_price` | Preis und Mengenrabatt | ERP/Kalkulation |
 | `calculate_delivery_date` | zugesagter Liefertermin | ERP/Disposition |
+
+## Nachvollziehbare Produktionsdauer
+
+Die Produktionsdauer ist kein fester, vom Sprachmodell erfundener Wert. Das MCP-Werkzeug berechnet
+sie nach einer transparenten Regel:
+
+`Produktionsdauer = Rüst- und Planungstage + aufrunden(Fehlmenge / Tageskapazität)`
+
+Die Tageskapazität ergibt sich aus der Wochenkapazität geteilt durch die Arbeitstage pro Woche.
+Bei P300 und 20 fehlenden Drucksensoren entstehen so zwei Rüst- und Planungstage plus ein
+Produktionstag, also drei Arbeitstage. Die Lieferterminberechnung überspringt Wochenenden.
+
+Eine Wochenkapazität ist dabei keine harte Auftragsgrenze. Reicht eine Woche nicht aus, prüft der
+Orchestrator zunächst eine vollständige externe Beschaffung und verwendet andernfalls eine
+mehrwöchige interne Produktion. Ein Liefertermin wird nur zugesagt, wenn mindestens ein Weg die
+gesamte Fehlmenge abdeckt. Teilmengen eines Lieferanten werden deshalb nie als vollständige
+Erfüllung gewertet.
 
 Der MCP-Server lässt sich separat mit dem offiziellen Inspector untersuchen:
 

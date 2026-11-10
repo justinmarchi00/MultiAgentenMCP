@@ -25,9 +25,11 @@ async def review(payload: dict[str, Any]) -> dict[str, str]:
 
         async def run(self, context: Any) -> str:
             return await self._aask(
-                "Du bist der Auftrags-Agent eines Industrieunternehmens. Fasse den folgenden "
-                "strukturierten Auftrag auf Deutsch in höchstens drei sachlichen Sätzen zusammen. "
-                "Erfinde keine Daten.\n\n" + context_text(context)
+                "Du bist Anna, die Auftrags-Agentin eines Industrieunternehmens. Erkläre den "
+                "folgenden Auftrag so, dass ihn eine Person ohne Fachkenntnisse sofort versteht. "
+                "Nenne Kunde, Produkt, Menge, Wunschliefertermin und die fachliche Entscheidung. "
+                "Verwende kurze deutsche Sätze, höchstens fünf Sätze, keine englischen "
+                "Programmierbegriffe und keine erfundenen Daten.\n\n" + context_text(context)
             )
 
     class ExplainPlanning(Action):
@@ -35,9 +37,15 @@ async def review(payload: dict[str, Any]) -> dict[str, str]:
 
         async def run(self, context: Any) -> str:
             return await self._aask(
-                "Du bist der Planungs-Agent. Erkläre die über MCP ermittelten Fakten zu Bestand, "
-                "Kapazität, Beschaffung, Preis und Liefertermin auf Deutsch. Nutze höchstens vier "
-                "Sätze und erfinde keine Werte.\n\n" + context_text(context)
+                "Du bist Paul, der Planungs-Agent. Erkläre die über MCP ermittelten Fakten in "
+                "leicht verständlichem Deutsch. Gehe in dieser Reihenfolge vor: Lagerbestand und "
+                "Fehlmenge, Produktionsdauer mit der angegebenen Formel oder Beschaffung, Preis "
+                "einschließlich Rabatt und Liefertermin. Nutze ausschließlich den als gewählt "
+                "markierten Erfüllungsweg. Behaupte nur dann, dass der Wunschtermin eingehalten "
+                "wird, wenn 'requested_date_met' ausdrücklich wahr ist. Erkläre kurz, was MCP "
+                "dabei leistet. "
+                "Verwende sechs bis acht kurze Sätze, übersetze technische Statuswerte ins "
+                "Deutsche und erfinde keine Werte.\n\n" + context_text(context)
             )
 
     class ValidateDecision(Action):
@@ -45,9 +53,15 @@ async def review(payload: dict[str, Any]) -> dict[str, str]:
 
         async def run(self, context: Any) -> str:
             return await self._aask(
-                "Du bist der Validierungs-Agent. Prüfe, ob die bereits regelbasiert getroffene "
-                "Entscheidung zu den gelieferten Fakten passt. Formuliere eine kurze, sachliche "
-                "Begründung auf Deutsch. Verändere die Entscheidung nicht und erfinde keine Daten."
+                "Du bist Vera, die Validierungs-Agentin. Prüfe unabhängig, ob die bereits "
+                "regelbasiert getroffene Entscheidung zu allen gelieferten Fakten passt. Beginne "
+                "mit einem klaren Satz: Ergebnis plausibel oder Ergebnis nicht plausibel. Begründe "
+                "das anhand von Bonität, Bestand, Kapazität oder Beschaffung, Preis und Termin. "
+                "Ein Termin gilt ausschließlich bei 'requested_date_met: true' als eingehalten; "
+                "ein fehlender zugesagter Termin darf nicht positiv bewertet werden. "
+                "Erkläre anschließend in einem Satz, was als Nächstes passieren müsste. Verwende "
+                "leicht verständliches Deutsch, höchstens sieben Sätze, keine englischen "
+                "Programmierwerte und keine erfundenen Daten. Verändere die Entscheidung nicht."
                 "\n\n" + context_text(context)
             )
 

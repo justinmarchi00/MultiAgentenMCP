@@ -1,15 +1,22 @@
 {
   "P100": {
     "weekly_capacity": 40,
-    "production_days": 5
+    "setup_days": 1,
+    "working_days_per_week": 5
   },
   "P200": {
     "weekly_capacity": 20,
-    "production_days": 8
+    "setup_days": 2,
+    "working_days_per_week": 5
   },
   "P300": {
     "weekly_capacity": 150,
-    "production_days": 3
+    "setup_days": 2,
+    "working_days_per_week": 5
+  },
+  "P400": {
+    "weekly_capacity": 50,
+    "setup_days": 2,
+    "working_days_per_week": 5
   }
 }
-

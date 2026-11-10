@@ -16,6 +16,11 @@
     "stock": 100,
     "unit_price": 89.9,
     "currency": "EUR"
+  },
+  "P400": {
+    "name": "Industriekeilriemen",
+    "stock": 0,
+    "unit_price": 249.0,
+    "currency": "EUR"
   }
 }
-

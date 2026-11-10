@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from math import ceil
 from typing import Any
 
 from mcp.server import MCPServer
@@ -50,13 +51,17 @@ def check_stock(product_id: str, quantity: int) -> dict[str, Any]:
 
 @mcp.tool()
 def check_capacity(product_id: str, quantity: int) -> dict[str, Any]:
-    """Prüft, ob eine fehlende Menge innerhalb einer Woche produziert werden kann."""
+    """Berechnet Kapazität und Produktionsdauer für eine fehlende Menge."""
     if quantity <= 0:
         return {
             "possible": True,
             "required_quantity": 0,
             "weekly_capacity": 0,
+            "daily_capacity": 0,
+            "setup_days": 0,
+            "processing_days": 0,
             "production_days": 0,
+            "calculation": "Keine Fehlmenge vorhanden.",
         }
 
     capacity = list_capacity().get(product_id)
@@ -68,12 +73,36 @@ def check_capacity(product_id: str, quantity: int) -> dict[str, Any]:
         }
 
     weekly_capacity = int(capacity["weekly_capacity"])
+    working_days = int(capacity.get("working_days_per_week", 5))
+    setup_days = int(capacity.get("setup_days", 0))
+    daily_capacity = weekly_capacity / working_days if weekly_capacity > 0 else 0
+    processing_days = ceil(quantity / daily_capacity) if daily_capacity > 0 else 0
+    production_days = setup_days + processing_days if processing_days > 0 else 0
+    capacity_text = f"{daily_capacity:.2f}".replace(".", ",")
+    setup_label = "Rüst- und Planungstag" if setup_days == 1 else "Rüst- und Planungstage"
+    processing_label = "Produktionstag" if processing_days == 1 else "Produktionstage"
+    total_label = "Arbeitstag" if production_days == 1 else "Arbeitstage"
     return {
         "product_id": product_id,
-        "possible": quantity <= weekly_capacity,
+        # Eine Wochenkapazität ist keine absolute Auftragsobergrenze. Solange
+        # eine positive Kapazität vorhanden ist, kann die Menge über mehrere
+        # Wochen produziert werden. Das separate Feld macht sichtbar, ob eine
+        # einzige Produktionswoche ausreicht.
+        "possible": weekly_capacity > 0,
+        "within_week_capacity": quantity <= weekly_capacity,
         "required_quantity": quantity,
         "weekly_capacity": weekly_capacity,
-        "production_days": int(capacity["production_days"]),
+        "working_days_per_week": working_days,
+        "daily_capacity": round(daily_capacity, 2),
+        "setup_days": setup_days,
+        "processing_days": processing_days,
+        "production_days": production_days,
+        "calculation": (
+            f"{setup_days} {setup_label} + aufgerundet "
+            f"({quantity} Stück ÷ {capacity_text} Stück pro Arbeitstag) = "
+            f"{processing_days} {processing_label} = "
+            f"{production_days} {total_label}"
+        ),
     }
 
 
@@ -141,24 +170,67 @@ def calculate_delivery_date(
     stock_available: bool,
     production_days: int = 0,
     planning_date: str | None = None,
+    fulfillment_possible: bool = True,
+    fulfillment_method: str = "production",
 ) -> dict[str, Any]:
-    """Ermittelt aus Wunschdatum und Produktionsdauer einen zugesagten Liefertermin."""
+    """Ermittelt aus Wunschdatum und Durchlaufzeit einen zugesagten Liefertermin."""
     try:
         requested = date.fromisoformat(requested_date)
         planning = date.fromisoformat(planning_date) if planning_date else date.today()
     except ValueError:
         return {"error": "Datum muss im ISO-Format YYYY-MM-DD übergeben werden."}
 
-    earliest = planning if stock_available else planning + timedelta(days=max(0, production_days))
+    duration = max(0, production_days)
+    if not stock_available and not fulfillment_possible:
+        return {
+            "requested_date": requested.isoformat(),
+            "planning_date": planning.isoformat(),
+            "stock_available": False,
+            "fulfillment_possible": False,
+            "fulfillment_method": "manual",
+            "duration_days": None,
+            "production_days": 0,
+            "date_calculation": (
+                "Kein vollständiger Erfüllungsweg vorhanden; der Liefertermin "
+                "muss manuell geplant werden."
+            ),
+            "promised_date": None,
+            "requested_date_met": False,
+        }
+
+    if stock_available:
+        fulfillment_method = "stock"
+        duration = 0
+    earliest = planning if stock_available else _add_working_days(planning, duration)
     promised = max(requested, earliest)
+    duration_label = "Arbeitstag" if duration == 1 else "Arbeitstage"
     return {
         "requested_date": requested.isoformat(),
         "planning_date": planning.isoformat(),
         "stock_available": stock_available,
-        "production_days": max(0, production_days),
+        "fulfillment_possible": True,
+        "fulfillment_method": fulfillment_method,
+        "duration_days": duration,
+        "production_days": duration,
+        "date_calculation": (
+            "Ware liegt auf Lager; Planungs- und Wunschtermin werden berücksichtigt."
+            if stock_available
+            else f"Planungsdatum + {duration} {duration_label}, Wochenenden ausgenommen."
+        ),
         "promised_date": promised.isoformat(),
         "requested_date_met": promised <= requested,
     }
+
+
+def _add_working_days(start: date, working_days: int) -> date:
+    """Addiert Arbeitstage (Montag bis Freitag) zu einem Datum."""
+    current = start
+    remaining = max(0, working_days)
+    while remaining:
+        current += timedelta(days=1)
+        if current.weekday() < 5:
+            remaining -= 1
+    return current
 
 
 if __name__ == "__main__":

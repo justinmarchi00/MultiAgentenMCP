@@ -52,4 +52,5 @@ class WorkflowResult(BaseModel):
     processing_seconds: float = Field(ge=0)
     metagpt_used: bool = False
     metagpt_summary: str | None = None
+    metagpt_messages: dict[str, str] = Field(default_factory=dict)
 

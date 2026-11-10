@@ -16,6 +16,13 @@ nachvollziehbar bearbeitet und ohne ein Sprachmodell reproduzierbare Ergebnisse 
 | T5 | Produkt unbekannt | kontrollierter Fehlerfall | automatisierter Workflowtest |
 | T6 | Menge null | Eingabe wird abgelehnt | Pydantic-Validierungstest |
 | T7 | MCP-Werkzeuge | strukturierte Ergebnisse | MCP-Integrationstests |
+| T8 | 20 fehlende P300 | 3 Arbeitstage aus Formel | Kapazitätsberechnungstest |
+| T9 | Durchlauf über Wochenende | Wochenende wird übersprungen | Lieferterminberechnungstest |
+| T10 | Stammdaten ergänzen, ändern, löschen | konsistente Speicherung | Datenspeichertest |
+| T11 | Produktion dauert länger als eine Woche | gesamte Produktionsdauer wird verwendet | Strategietest |
+| T12 | Lieferant deckt nur eine Teilmenge | keine falsche Beschaffungszusage | Strategietest |
+| T13 | 12 Arbeitstage ab 10.11.2026 | Zusage 26.11.2026, Wunsch verfehlt | Termintest |
+| T14 | kein vollständiger Erfüllungsweg | kein Liefertermin, manuelle Prüfung | MCP-Test |
 
 ## Bewertungskriterien
 

@@ -49,6 +49,50 @@ die Demo auch ohne API-Schlüssel vollständig lauffähig und ihre Ergebnisse bl
 
 Mehr Details: [Architektur](docs/architecture.md)
 
+Alle in Oberfläche und Dokumentation verwendeten Fachbegriffe stehen zusätzlich im
+[Glossar](docs/glossary.md). In der Weboberfläche öffnet die Schaltfläche „Begriffe“ ein
+durchsuchbares Glossar; die Prozessschritte und zentralen Kennzahlen besitzen außerdem
+Hover-Erklärungen.
+
+## Zentrale Begriffe einfach erklärt
+
+| Begriff | Bedeutung im Prototyp |
+|---|---|
+| **BPM** | Business Process Management gestaltet und verbessert betriebliche Abläufe. Hier wird die Auftragsabwicklung als digitaler Prozess abgebildet. |
+| **Workflow** | Festgelegte Folge von Arbeitsschritten, Regeln und Ergebnissen. |
+| **Workflow-Orchestrator** | Zentrale Steuerung, die Prozessschritte startet, Agenten koordiniert, Ergebnisse sammelt und den nächsten Prozessweg auswählt. |
+| **KI-Agent** | Softwarekomponente mit einer klaren Rolle und Aufgabe, beispielsweise Planung oder Validierung. |
+| **Multi-Agentensystem** | Mehrere spezialisierte Agenten arbeiten koordiniert an einem gemeinsamen Ergebnis. |
+| **MetaGPT** | Open-Source-Framework für rollenbasierte Multi-Agentensysteme. Es erzeugt hier verständliche Erklärungen und eine zusätzliche Prüfung. |
+| **LLM / Sprachmodell** | KI-Modell zur Verarbeitung und Erzeugung von Sprache. Es formuliert Texte, bestimmt aber keine Geschäftswerte. |
+| **MCP** | Model Context Protocol: standardisiertes Protokoll, über das KI-Anwendungen Werkzeuge und Datenquellen kontrolliert verwenden können. |
+| **MCP-Client** | Anfragende Komponente, die strukturierte Werkzeugaufrufe an den MCP-Server sendet und Ergebnisse entgegennimmt. |
+| **MCP-Server** | Anbietende Komponente, die definierte Werkzeuge bereitstellt, Parameter prüft und strukturierte Ergebnisse zurückliefert. |
+| **MCP-Werkzeug** | Klar begrenzte Serverfunktion, zum Beispiel Bestand prüfen oder Liefertermin berechnen. |
+| **Strukturierte Daten / JSON** | Daten mit eindeutig benannten Feldern, die zuverlässig maschinell verarbeitet werden können. |
+| **CRM** | Customer Relationship Management für Kundenstammdaten und Bonitätsstatus. |
+| **ERP** | Enterprise Resource Planning für Aufträge, Preise, Materialien und weitere Unternehmensressourcen. |
+| **PPS / MES** | Systeme für Produktionsplanung, Kapazitäten sowie operative Fertigung und Überwachung. |
+| **SRM** | Supplier Relationship Management für Lieferanten und Beschaffungsbedingungen. |
+| **Bonität** | Einschätzung der Zahlungsfähigkeit eines Kunden. Nicht freigegebene Fälle werden manuell geprüft. |
+| **Fehlmenge** | Teil der bestellten Menge, der nicht auf Lager liegt und produziert oder beschafft werden muss. |
+| **Durchlaufzeit** | Benötigte Arbeitszeit vom Planungsbeginn bis zur vollständigen Bereitstellung. |
+| **Regelbasierte Entscheidung** | Reproduzierbare Entscheidung nach festen Bedingungen; MetaGPT darf sie erklären und prüfen, aber nicht verändern. |
+| **Validierung** | Kontrolle, ob Daten, Berechnung, Entscheidung und Erklärung widerspruchsfrei zusammenpassen. |
+| **Prototyp** | Vereinfachte, funktionsfähige Umsetzung zur Demonstration und Evaluation, noch kein produktives Unternehmenssystem. |
+
+### Zusammenspiel der Komponenten
+
+1. Der Benutzer erfasst den Auftrag in der Weboberfläche.
+2. Der **Workflow-Orchestrator** koordiniert die fachlichen Schritte und Agenten.
+3. Der **MCP-Client** ruft definierte Werkzeuge des **MCP-Servers** auf.
+4. Der MCP-Server ermittelt Kunden-, Bestands-, Kapazitäts-, Preis- und Termindaten.
+5. Der regelbasierte Workflow wählt einen vollständigen Erfüllungsweg und trifft die Entscheidung.
+6. Die optionalen **MetaGPT-Agenten** erklären und validieren das bereits feststehende Ergebnis.
+
+Das vollständige [Glossar](docs/glossary.md) enthält weitere fachliche Einzelbegriffe wie
+Rüstzeit, Produktionskapazität, Beschaffung, Stammdaten und zugesagten Liefertermin.
+
 ## Schnellstart auf Windows, Linux und macOS
 
 Voraussetzung für die native Installation ist **Python 3.11**. Nach dem Start ist die Anwendung
@@ -131,18 +175,18 @@ benötigte Komponenten, darunter `lancedb==0.4.0`. Diese werden ausgelassen; ans
 tatsächlich verwendeten Klassen `Action` und `Role` durch einen Importtest geprüft.
 
 Der API-Schlüssel wird ausschließlich in der lokalen MetaGPT-Konfiguration hinterlegt und niemals
-in dieses Repository eingecheckt. In der Weboberfläche kann danach „Erklärung durch MetaGPT
-aktivieren“ ausgewählt werden.
+in dieses Repository eingecheckt. In der Weboberfläche kann danach „MetaGPT-Erklärung erstellen“
+ausgewählt werden.
 
 ## Demoablauf
 
 1. Den passenden Startbefehl für das Betriebssystem ausführen.
 2. Eines der vorbereiteten Szenarien auswählen.
-3. „Auftrag starten“ anklicken.
+3. „Auftrag bearbeiten“ anklicken.
 4. Im Präsentationsmodus live verfolgen, welche Rolle welches MCP-Werkzeug verwendet.
-5. Im Bereich „So wurde gerechnet“ die Produktions-, Preis- und Terminformeln erläutern.
+5. Im Tab „Berechnung“ die Produktions-, Preis- und Terminformeln erläutern.
 6. Die drei MetaGPT-Rollen Anna, Paul und Vera miteinander vergleichen.
-7. Über „Stammdaten verwalten“ den kompakten Verwaltungsdialog öffnen.
+7. Über „Stammdaten“ den kompakten Verwaltungsdialog öffnen.
 8. Kunden und Produkte dort anzeigen, anlegen, bearbeiten oder kontrolliert löschen.
 
 | Szenario | Eingabe | Erwartete Entscheidung |

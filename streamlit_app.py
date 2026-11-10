@@ -105,6 +105,18 @@ st.markdown(
         background:linear-gradient(90deg,#bfdbfe,#60a5fa,#5eead4);z-index:0;
       }
       .of-node {position:relative;z-index:1;text-align:center;color:#94a3b8;}
+      .of-has-tip {cursor:help;}
+      .of-has-tip::after {
+        content:attr(data-tip);position:absolute;left:50%;top:calc(100% + .55rem);
+        transform:translate(-50%,-.2rem);width:240px;padding:.58rem .68rem;
+        border-radius:10px;background:#11213d;color:white;font-size:.72rem;
+        font-weight:500;line-height:1.35;text-align:left;box-shadow:0 10px 25px rgba(15,23,42,.2);
+        opacity:0;visibility:hidden;transition:.16s ease;pointer-events:none;z-index:100;
+      }
+      .of-has-tip:hover::after,.of-has-tip:focus-visible::after {
+        opacity:1;visibility:visible;transform:translate(-50%,0);
+      }
+      .of-node:hover {z-index:50;}
       .of-node-icon {
         width:2.2rem;height:2.2rem;border-radius:50%;display:grid;place-items:center;
         margin:0 auto .28rem;background:#f1f5f9;border:3px solid white;
@@ -165,6 +177,24 @@ st.markdown(
       .of-agent-name {font-weight:800;color:var(--navy);font-size:.9rem;}
       .of-agent-role {font-size:.7rem;color:var(--muted);}
       .of-agent-text {font-size:.8rem;line-height:1.45;color:#334155;}
+      .of-term {
+        position:relative;display:inline-block;border-bottom:1px dotted currentColor;
+        cursor:help;font-weight:650;
+      }
+      .of-term.of-has-tip::after {top:calc(100% + .35rem);}
+      .of-glossary-grid {
+        display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem;
+        margin-top:.65rem;
+      }
+      .of-glossary-card {
+        border:1px solid var(--line);border-radius:14px;background:white;padding:.78rem .85rem;
+      }
+      .of-glossary-category {
+        color:var(--blue);font-size:.64rem;font-weight:800;text-transform:uppercase;
+        letter-spacing:.06em;margin-bottom:.18rem;
+      }
+      .of-glossary-title {font-size:.92rem;font-weight:800;color:var(--navy);}
+      .of-glossary-text {font-size:.79rem;line-height:1.42;color:#475569;margin-top:.25rem;}
       .of-formula {
         padding:.65rem .8rem;border-radius:11px;background:#f3f7fd;
         border:1px solid #d9e5f4;margin:.35rem 0;color:#29466e;font-size:.86rem;
@@ -180,6 +210,8 @@ st.markdown(
         .of-flow {grid-template-columns:repeat(3,1fr);}
         .of-flow::before,.of-flow.running::after {display:none;}
         .of-agent-grid {grid-template-columns:1fr;}
+        .of-glossary-grid {grid-template-columns:1fr;}
+        .of-has-tip::after {display:none;}
       }
       @media (prefers-reduced-motion:reduce) {
         *,*::before,*::after {
@@ -335,6 +367,209 @@ GERMAN_VALUES = {
     "manual": "Manuelle Planung",
 }
 
+GLOSSARY = [
+    (
+        "Grundlagen",
+        "Business Process Management (BPM)",
+        "BPM gestaltet, steuert und verbessert betriebliche Abläufe. Hier wird die "
+        "Auftragsabwicklung als durchgängiger digitaler Prozess gezeigt.",
+    ),
+    (
+        "Grundlagen",
+        "Auftragsabwicklung",
+        "Alle Schritte vom Eingang eines Kundenauftrags über Prüfung, Bestand, Produktion, "
+        "Beschaffung und Preis bis zur Auftragsbestätigung.",
+    ),
+    (
+        "Grundlagen",
+        "Workflow",
+        "Eine festgelegte Abfolge zusammengehöriger Arbeitsschritte mit Eingaben, Regeln und "
+        "Ergebnissen.",
+    ),
+    (
+        "Steuerung",
+        "Workflow-Orchestrator",
+        "Die zentrale Steuerung. Sie startet die Schritte in der richtigen Reihenfolge, sammelt "
+        "Ergebnisse und entscheidet, welcher Prozessweg als Nächstes folgt.",
+    ),
+    (
+        "Agenten",
+        "KI-Agent",
+        "Eine Softwarekomponente mit klarer Rolle und Aufgabe. Ein Agent erhält Informationen, "
+        "führt passende Aktionen aus und gibt sein Ergebnis weiter.",
+    ),
+    (
+        "Agenten",
+        "Multi-Agentensystem",
+        "Mehrere spezialisierte Agenten arbeiten koordiniert an einem gemeinsamen Ziel, statt "
+        "alle Aufgaben in einer einzigen Komponente zu vermischen.",
+    ),
+    (
+        "Agenten",
+        "Auftrags-Agent",
+        "Prüft die Auftragseingabe und fasst Kunde, Produkt, Menge und Wunschtermin verständlich "
+        "zusammen.",
+    ),
+    (
+        "Agenten",
+        "Planungs-Agent",
+        "Bewertet Bestand, Produktionskapazität und Liefertermin und erklärt den gewählten "
+        "Erfüllungsweg.",
+    ),
+    (
+        "Agenten",
+        "Beschaffungs-Agent",
+        "Prüft, ob eine fehlende Menge vollständig bei einem Lieferanten beschafft werden kann.",
+    ),
+    (
+        "Agenten",
+        "Kalkulations-Agent",
+        "Berechnet Stückpreis, Zwischensumme, Mengenrabatt und Gesamtpreis anhand fester Regeln.",
+    ),
+    (
+        "Agenten",
+        "Validierungs-Agent",
+        "Kontrolliert, ob Entscheidung und Erklärung zu den ermittelten Geschäftsdaten passen.",
+    ),
+    (
+        "KI",
+        "MetaGPT",
+        "Ein Open-Source-Framework für rollenbasierte Multi-Agentensysteme. Im Prototyp erklären "
+        "und prüfen seine Rollen das Ergebnis, verändern aber keine Geschäftsdaten.",
+    ),
+    (
+        "KI",
+        "LLM / Sprachmodell",
+        "Ein KI-Modell, das Sprache verarbeitet und erzeugt. Es formuliert hier verständliche "
+        "Erklärungen, ist aber nicht die Quelle für Preise, Bestände oder Termine.",
+    ),
+    (
+        "Integration",
+        "MCP",
+        "Model Context Protocol: ein standardisiertes Protokoll, über das KI-Anwendungen "
+        "Werkzeuge und Datenquellen kontrolliert finden und aufrufen können.",
+    ),
+    (
+        "Integration",
+        "MCP-Client",
+        "Die anfragende Seite. Der Client sendet einen strukturierten Werkzeugaufruf an den "
+        "MCP-Server und nimmt dessen Ergebnis entgegen.",
+    ),
+    (
+        "Integration",
+        "MCP-Server",
+        "Die anbietende Seite. Der Server stellt definierte Werkzeuge bereit, prüft Parameter "
+        "und liefert kontrollierte, strukturierte Ergebnisse zurück.",
+    ),
+    (
+        "Integration",
+        "MCP-Werkzeug",
+        "Eine klar begrenzte Funktion des MCP-Servers, beispielsweise Kunden abrufen, Bestand "
+        "prüfen oder einen Liefertermin berechnen.",
+    ),
+    (
+        "Integration",
+        "Schnittstelle / API",
+        "Ein festgelegter Zugang, über den Softwaresysteme Daten austauschen oder Funktionen "
+        "aufrufen. MCP vereinheitlicht die Nutzung solcher Zugänge für KI-Anwendungen.",
+    ),
+    (
+        "Integration",
+        "Strukturierte Daten / JSON",
+        "Daten mit eindeutig benannten Feldern. Dadurch können Komponenten Werte zuverlässig "
+        "weiterverarbeiten, statt sie aus freiem Text erraten zu müssen.",
+    ),
+    (
+        "Systeme",
+        "CRM",
+        "Customer Relationship Management: System für Kundenstammdaten, Kontakte und hier auch "
+        "den Bonitätsstatus.",
+    ),
+    (
+        "Systeme",
+        "ERP",
+        "Enterprise Resource Planning: zentrales System für Aufträge, Preise, Materialien, "
+        "Finanzen und weitere Unternehmensressourcen.",
+    ),
+    (
+        "Systeme",
+        "PPS / MES",
+        "PPS plant Produktion und Materialbedarf. MES unterstützt und überwacht die operative "
+        "Fertigung. Im Prototyp liefern sie Kapazitätsdaten.",
+    ),
+    (
+        "Systeme",
+        "SRM",
+        "Supplier Relationship Management: System für Lieferanten, Bezugsgrenzen und "
+        "Beschaffungszeiten.",
+    ),
+    (
+        "Fachlichkeit",
+        "Bonität",
+        "Einschätzung der Zahlungsfähigkeit eines Kunden. Nur ein freigegebener Status erlaubt "
+        "die automatische Weiterverarbeitung.",
+    ),
+    (
+        "Fachlichkeit",
+        "Stammdaten",
+        "Relativ stabile Grunddaten wie Kunden, Produkte, Preise, Kapazitäten und Lieferanten.",
+    ),
+    (
+        "Fachlichkeit",
+        "Lagerbestand und Fehlmenge",
+        "Der Lagerbestand ist die verfügbare Menge. Die Fehlmenge ist der Teil des Auftrags, "
+        "der zusätzlich produziert oder beschafft werden muss.",
+    ),
+    (
+        "Fachlichkeit",
+        "Produktionskapazität",
+        "Menge, die in einem Zeitraum hergestellt werden kann. Aus Wochenkapazität und "
+        "Arbeitstagen berechnet das System die Tageskapazität.",
+    ),
+    (
+        "Fachlichkeit",
+        "Rüst- und Planungstage",
+        "Zeit für Vorbereitung, Maschinenumstellung und Produktionsplanung, bevor die eigentliche "
+        "Fertigung abgeschlossen werden kann.",
+    ),
+    (
+        "Fachlichkeit",
+        "Beschaffung",
+        "Externer Einkauf einer fehlenden Menge bei einem Lieferanten, wenn die interne "
+        "Bereitstellung nicht geeignet ist.",
+    ),
+    (
+        "Fachlichkeit",
+        "Durchlaufzeit",
+        "Gesamte Zeit vom Planungsbeginn bis zur Bereitstellung, angegeben in Arbeitstagen.",
+    ),
+    (
+        "Fachlichkeit",
+        "Wunschtermin und zugesagter Liefertermin",
+        "Der Wunschtermin kommt vom Kunden. Der zugesagte Termin ist der früheste tatsächlich "
+        "erreichbare Termin nach Bestands-, Produktions- oder Beschaffungsprüfung.",
+    ),
+    (
+        "Qualität",
+        "Regelbasierte Entscheidung",
+        "Eine reproduzierbare Entscheidung nach festen Bedingungen. Gleiche Eingaben ergeben "
+        "dieselbe Entscheidung; das Sprachmodell darf sie nicht verändern.",
+    ),
+    (
+        "Qualität",
+        "Validierung",
+        "Prüfung, ob Daten, Berechnung, Entscheidung und Erklärung vollständig und "
+        "widerspruchsfrei "
+        "zusammenpassen.",
+    ),
+    (
+        "Qualität",
+        "Prototyp",
+        "Eine vereinfachte, funktionsfähige Umsetzung zum Demonstrieren und Evaluieren eines "
+        "Konzepts, noch kein produktives Unternehmenssystem.",
+    ),
+]
+
 
 def money(value: float | int | None, currency: str = "EUR") -> str:
     if value is None:
@@ -408,18 +643,41 @@ def clear_selection_state(kind: str) -> None:
 
 def process_map(active_step: int = 0, *, running: bool = False) -> str:
     nodes = [
-        ("order", "Auftrag"),
-        ("orchestrate", "Steuerung"),
-        ("plug", "MCP-Daten"),
-        ("plan", "Planung"),
-        ("agents", "MetaGPT"),
-        ("result", "Ergebnis"),
+        ("order", "Auftrag", "Kunde, Produkt, Menge und Wunschtermin werden erfasst."),
+        (
+            "orchestrate",
+            "Steuerung",
+            "Der Workflow-Orchestrator koordiniert Reihenfolge, Agenten und Prozesswege.",
+        ),
+        (
+            "plug",
+            "MCP-Daten",
+            "Der MCP-Client ruft kontrollierte Werkzeuge des MCP-Servers auf.",
+        ),
+        (
+            "plan",
+            "Planung",
+            "Bestand, Produktion, Beschaffung, Preis und Liefertermin werden ausgewertet.",
+        ),
+        (
+            "agents",
+            "MetaGPT",
+            "Spezialisierte KI-Agenten erklären und validieren die feststehenden Ergebnisse.",
+        ),
+        (
+            "result",
+            "Ergebnis",
+            "Entscheidung, Begründung, Berechnung und Protokoll werden zusammengeführt.",
+        ),
     ]
     rendered = []
-    for index, (icon, label) in enumerate(nodes, start=1):
+    for index, (icon, label, description) in enumerate(nodes, start=1):
         state = "done" if index < active_step else "active" if index == active_step else ""
         rendered.append(
-            f'<div class="of-node {state}"><div class="of-node-icon">'
+            f'<div class="of-node of-has-tip {state}" tabindex="0" '
+            f'data-tip="{escape(description, quote=True)}" '
+            f'aria-label="{escape(label)}: {escape(description, quote=True)}">'
+            '<div class="of-node-icon">'
             f'{svg_icon(icon)}</div><div class="of-node-label">{label}</div></div>'
         )
     running_class = " running" if running else ""
@@ -428,15 +686,34 @@ def process_map(active_step: int = 0, *, running: bool = False) -> str:
 
 def agent_cards(messages: dict[str, str]) -> str:
     agents = [
-        ("order_agent", "person", "Anna", "Auftrag zusammenfassen"),
-        ("planning_agent", "chart", "Paul", "Planung erklären"),
-        ("validation_agent", "result", "Vera", "Ergebnis prüfen"),
+        (
+            "order_agent",
+            "person",
+            "Anna",
+            "Auftrags-Agentin",
+            "Fasst Auftrag, Kunde, Produkt, Menge und Wunschtermin zusammen.",
+        ),
+        (
+            "planning_agent",
+            "chart",
+            "Paul",
+            "Planungs-Agent",
+            "Erklärt Lager, Kapazität, Beschaffung, Preis und Liefertermin.",
+        ),
+        (
+            "validation_agent",
+            "result",
+            "Vera",
+            "Validierungs-Agentin",
+            "Prüft, ob Entscheidung, Berechnung und Erklärung zusammenpassen.",
+        ),
     ]
     cards = []
-    for key, icon, name, role in agents:
+    for key, icon, name, role, description in agents:
         text = escape(messages.get(key, "Keine Nachricht vorhanden.")).replace("\n", "<br>")
         cards.append(
-            '<div class="of-agent"><div class="of-agent-head">'
+            f'<div class="of-agent" title="{escape(description, quote=True)}">'
+            '<div class="of-agent-head">'
             f'<div class="of-avatar">{svg_icon(icon)}</div><div>'
             f'<div class="of-agent-name">{name}</div>'
             f'<div class="of-agent-role">{role}</div></div></div>'
@@ -528,6 +805,53 @@ def product_table(
         }
         for identifier, record in products.items()
     ]
+
+
+@st.dialog("Begriffe einfach erklärt", width="large")
+def glossary_dialog() -> None:
+    st.caption(
+        "Kurze Erklärungen zu BPM, Agenten, MetaGPT, MCP und den verwendeten Geschäftsdaten"
+    )
+    search_column, category_column = st.columns([1.6, 1])
+    search = search_column.text_input(
+        "Begriff suchen",
+        placeholder="z. B. MCP-Server, Agent oder Bonität",
+        key="glossary_search",
+    )
+    categories = ["Alle", *sorted({category for category, _, _ in GLOSSARY})]
+    category_filter = category_column.selectbox(
+        "Themenbereich", categories, key="glossary_category"
+    )
+
+    needle = search.strip().casefold()
+    matches = [
+        (category, title, description)
+        for category, title, description in GLOSSARY
+        if (category_filter == "Alle" or category == category_filter)
+        and (
+            not needle
+            or needle in title.casefold()
+            or needle in description.casefold()
+            or needle in category.casefold()
+        )
+    ]
+    if not matches:
+        st.info("Zu dieser Suche wurde kein Begriff gefunden.")
+        return
+
+    cards = []
+    for category, title, description in matches:
+        cards.append(
+            '<article class="of-glossary-card">'
+            f'<div class="of-glossary-category">{escape(category)}</div>'
+            f'<div class="of-glossary-title">{escape(title)}</div>'
+            f'<div class="of-glossary-text">{escape(description)}</div>'
+            "</article>"
+        )
+    st.markdown(
+        f'<div class="of-glossary-grid">{"".join(cards)}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 @st.dialog("Stammdatenverwaltung", width="large")
@@ -857,17 +1181,36 @@ product_options = {
     f"{identifier} · {record['name']}": identifier for identifier, record in products.items()
 }
 
-header_left, header_right = st.columns([7, 1.15], vertical_alignment="center")
+header_left, header_right = st.columns([6.25, 1.75], vertical_alignment="center")
 with header_left:
     st.markdown(
         '<div class="of-header"><div class="of-logo">'
         f'{svg_icon("logo")}</div><div><div class="of-name">OrderFlow AI</div>'
-        '<div class="of-tagline">Interaktive Auftragsabwicklung mit MCP und MetaGPT</div>'
+        '<div class="of-tagline">Interaktive Auftragsabwicklung mit '
+        '<span class="of-term of-has-tip" tabindex="0" '
+        'data-tip="Model Context Protocol: standardisierter Zugriff auf Werkzeuge und Daten." '
+        'title="Model Context Protocol">MCP</span> und '
+        '<span class="of-term of-has-tip" tabindex="0" '
+        'data-tip="Framework für spezialisierte KI-Agenten, die Ergebnisse erklären und prüfen." '
+        'title="Multi-Agenten-Framework">MetaGPT</span></div>'
         "</div></div>",
         unsafe_allow_html=True,
     )
 with header_right:
-    if st.button("Stammdaten verwalten", width="stretch"):
+    glossary_button, master_data_button = st.columns(2)
+    if glossary_button.button(
+        "Begriffe",
+        width="stretch",
+        help="Fachbegriffe und technische Komponenten einfach erklären",
+        key="open_glossary",
+    ):
+        glossary_dialog()
+    if master_data_button.button(
+        "Stammdaten",
+        width="stretch",
+        help="Kunden, Produkte, Kapazitäten und Lieferanten verwalten",
+        key="open_master_data",
+    ):
         master_data_dialog()
 
 if notice := st.session_state.pop("notice", None):
@@ -903,12 +1246,14 @@ with input_column:
             list(customer_options),
             index=option_index(customer_options, default_customer),
             key=f"customer_{scenario}",
+            help="Kundenstammdaten und Bonitätsstatus stammen im Prototyp aus dem CRM-Datensatz.",
         )
         product_label = st.selectbox(
             "Produkt",
             list(product_options),
             index=option_index(product_options, default_product),
             key=f"product_{scenario}",
+            help="Produktstammdaten enthalten Bestand, Preis, Kapazität und Lieferantenbezug.",
         )
         quantity_column, date_column = st.columns([.65, 1.35])
         quantity = quantity_column.number_input(
@@ -918,30 +1263,52 @@ with input_column:
             value=default_quantity,
             step=1,
             key=f"quantity_{scenario}",
+            help=(
+                "Bestellte Stückzahl; daraus werden Fehlmenge, Preis und "
+                "Kapazitätsbedarf ermittelt."
+            ),
         )
         requested_date = date_column.date_input(
             "Wunschtermin",
             value=date.today() + timedelta(days=14),
             format="DD.MM.YYYY",
             key=f"date_{scenario}",
+            help=(
+                "Vom Kunden gewünschter Termin; er kann vom realistisch zugesagten "
+                "Termin abweichen."
+            ),
         )
         speed = st.select_slider(
             "Ablauf",
             options=["Sofort", "Schnell", "Präsentation"],
             value="Präsentation",
+            help=(
+                "Steuert nur die sichtbare Geschwindigkeit der Demonstration, "
+                "nicht die Berechnung."
+            ),
         )
         use_metagpt = st.checkbox(
             "MetaGPT-Erklärung erstellen",
             value=False,
             disabled=not metagpt_ready,
+            help=(
+                "MetaGPT lässt drei KI-Agenten das regelbasierte Ergebnis erklären und prüfen. "
+                "Die Geschäftswerte bleiben unverändert."
+            ),
         )
         submitted = st.form_submit_button(
             "Auftrag bearbeiten", type="primary", width="stretch"
         )
 
     st.markdown(
-        f'<div class="of-note">{svg_icon("lock")}<div>MCP liefert kontrollierte '
-        "Geschäftsdaten. MetaGPT erklärt und prüft, verändert aber keine Werte.</div></div>",
+        f'<div class="of-note">{svg_icon("lock")}<div>'
+        '<span class="of-term of-has-tip" tabindex="0" '
+        'data-tip="Der MCP-Client ruft definierte Werkzeuge des MCP-Servers auf." '
+        'title="Model Context Protocol">MCP</span> liefert kontrollierte Geschäftsdaten. '
+        '<span class="of-term of-has-tip" tabindex="0" '
+        'data-tip="MetaGPT koordiniert spezialisierte KI-Rollen für Erklärung und Prüfung." '
+        'title="Multi-Agenten-Framework">MetaGPT</span> erklärt und prüft, verändert aber keine '
+        "Werte.</div></div>",
         unsafe_allow_html=True,
     )
 
@@ -1021,7 +1388,9 @@ with process_column:
 
             metric_columns = st.columns(5)
             metric_columns[0].metric(
-                "Bonität", result.customer.get("credit_status", "unbekannt")
+                "Bonität",
+                result.customer.get("credit_status", "unbekannt"),
+                help="Einschätzung der Zahlungsfähigkeit des Kunden.",
             )
             metric_columns[1].metric(
                 "Bestand",
@@ -1032,6 +1401,7 @@ with process_column:
                     else f"{result.stock.get('missing_quantity', 0)} fehlen"
                 ),
                 delta_color="inverse",
+                help="Verfügbare Stückzahl; die Differenz zur Bestellung ist die Fehlmenge.",
             )
             metric_columns[2].metric(
                 "Durchlaufzeit",
@@ -1042,13 +1412,20 @@ with process_column:
                     if result.delivery.get("fulfillment_possible")
                     else "nicht ermittelbar"
                 ),
+                help="Benötigte Arbeitszeit des ausgewählten Erfüllungswegs.",
             )
             metric_columns[3].metric(
                 "Gesamtpreis",
                 money(result.price.get("total_price"), result.price.get("currency", "EUR")),
+                help="Stückpreis mal Menge abzüglich des regelbasierten Mengenrabatts.",
             )
             metric_columns[4].metric(
-                "Liefertermin", german_date(result.delivery.get("promised_date"))
+                "Liefertermin",
+                german_date(result.delivery.get("promised_date")),
+                help=(
+                    "Frühester zugesagter Termin nach Bestands-, Produktions- oder "
+                    "Beschaffungsprüfung."
+                ),
             )
 
             result_tab, calculation_tab, metagpt_tab, mcp_tab, log_tab = st.tabs(

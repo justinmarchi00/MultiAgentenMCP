@@ -2,12 +2,17 @@
 
 ## Vorbereitung
 
+Linux/macOS:
+
 ```bash
-cd /Users/justin/GitHub-Repo/MultiAgentenMCP
-make setup
-make check
-make run
+cd MultiAgentenMCP
+./scripts/setup_unix.sh
+.venv/bin/python -m pytest
+./scripts/run_unix.sh
 ```
+
+Windows: zuerst `setup-windows.cmd` und danach `start-windows.cmd` ausführen. Alternativ startet
+`docker compose up --build` die gleiche Basisanwendung auf allen unterstützten Plattformen.
 
 ## Empfohlene Vorführung in sieben Minuten
 

@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+.venv-metagpt
+__pycache__
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+logs
+workspace
+metagpt
+config/config2.yaml
+*.pyc

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import venv
 from pathlib import Path
@@ -7,7 +8,7 @@ from shutil import copyfile
 
 ROOT = Path(__file__).resolve().parents[1]
 VENV = ROOT / ".venv-metagpt"
-PYTHON = VENV / "bin" / "python"
+PYTHON = VENV / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 CONFIG = ROOT / "config" / "config2.yaml"
 CONFIG_EXAMPLE = ROOT / "config" / "config2.example.yaml"
 

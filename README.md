@@ -49,29 +49,78 @@ die Demo auch ohne API-Schlüssel vollständig lauffähig und ihre Ergebnisse bl
 
 Mehr Details: [Architektur](docs/architecture.md)
 
-## Schnellstart auf macOS
+## Schnellstart auf Windows, Linux und macOS
 
-Voraussetzung ist **Python 3.11**. Diese Version erfüllt gleichzeitig die Anforderungen von
-MetaGPT und der verwendeten MCP-Version.
+Voraussetzung für die native Installation ist **Python 3.11**. Nach dem Start ist die Anwendung
+auf allen Plattformen unter [http://localhost:8501](http://localhost:8501) erreichbar.
+
+### Windows
+
+1. Python 3.11 von [python.org](https://www.python.org/downloads/) installieren und dabei
+   „Add Python to PATH“ aktivieren.
+2. `setup-windows.cmd` doppelt anklicken und die Installation abwarten.
+3. Danach `start-windows.cmd` doppelt anklicken.
+
+Alternativ können beide Dateien aus PowerShell oder der Eingabeaufforderung gestartet werden.
+
+### Linux
+
+```bash
+cd MultiAgentenMCP
+chmod +x scripts/setup_unix.sh scripts/run_unix.sh
+./scripts/setup_unix.sh
+./scripts/run_unix.sh
+```
+
+Unter Ubuntu oder Debian muss Python 3.11 gegebenenfalls vorher über die Paketverwaltung
+installiert werden. Mit `PYTHON=/pfad/zu/python3.11 ./scripts/setup_unix.sh` kann ein bestimmter
+Interpreter ausgewählt werden.
+
+### macOS
 
 ```bash
 brew install python@3.11
-cd /Users/justin/GitHub-Repo/MultiAgentenMCP
-make setup
-make run
+cd MultiAgentenMCP
+./scripts/setup_unix.sh
+./scripts/run_unix.sh
 ```
 
-Anschließend öffnet sich die Anwendung normalerweise unter
-[http://localhost:8501](http://localhost:8501).
+Die bisherigen Make-Befehle (`make setup`, `make run`) funktionieren unter macOS und Linux
+weiterhin.
+
+### Plattformunabhängig mit Docker
+
+Wenn Docker Desktop beziehungsweise Docker Engine installiert ist, läuft die Basisanwendung auf
+Windows, Linux und macOS identisch:
+
+```bash
+docker compose up --build
+```
+
+Die Demo-Stammdaten werden über `./data` eingebunden und bleiben dadurch nach einem Neustart des
+Containers erhalten. Beendet wird die Anwendung mit `docker compose down`.
+
+Der Server lauscht bewusst auf `0.0.0.0`. Dadurch können andere Geräte im selben lokalen Netzwerk
+die Anwendung über `http://IP-DES-RECHNERS:8501` öffnen, sofern die Firewall Port 8501 zulässt.
 
 Falls MetaGPT mit einem echten Sprachmodell getestet werden soll, wird es wegen seiner älteren
 Abhängigkeiten bewusst in einer zweiten virtuellen Umgebung isoliert:
 
+Linux/macOS:
+
 ```bash
-make setup-metagpt
-# Danach den API-Schlüssel in config/config2.yaml eintragen.
-make run
+.venv/bin/python scripts/setup_metagpt.py
 ```
+
+Windows:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\setup_metagpt.py
+```
+
+Danach wird der API-Schlüssel in `config/config2.yaml` eingetragen und die Anwendung erneut
+gestartet. Das Docker-Abbild enthält bewusst nur die vollständig offline nutzbare Basisanwendung;
+für die optionale MetaGPT-Laufzeit wird die native Installation empfohlen.
 
 Das Setup kopiert bei Bedarf `config/config2.example.yaml` nach `config/config2.yaml`. Die offizielle
 MetaGPT-Version referenziert zusätzlich einige veraltete oder für diesen Rollen-Workflow nicht
@@ -84,7 +133,7 @@ aktivieren“ ausgewählt werden.
 
 ## Demoablauf
 
-1. `make run` ausführen.
+1. Den passenden Startbefehl für das Betriebssystem ausführen.
 2. Eines der vorbereiteten Szenarien auswählen.
 3. „Auftrag starten“ anklicken.
 4. Im Präsentationsmodus live verfolgen, welche Rolle welches MCP-Werkzeug verwendet.
@@ -153,6 +202,10 @@ make cli
 `make check` führt Linting und alle automatisierten Tests aus. Die GitHub Action wiederholt diese
 Prüfungen bei jedem Push und Pull Request.
 
+Unter Windows lassen sich dieselben Prüfungen mit
+`.venv\Scripts\python.exe -m pytest` und
+`.venv\Scripts\python.exe -m ruff check .` starten.
+
 ## Projektstruktur
 
 ```text
@@ -167,7 +220,11 @@ MultiAgentenMCP/
 │   ├── models.py              # Datenmodelle
 │   └── cli.py                 # Kommandozeilen-Demo
 ├── tests/                      # automatisierte Tests
+├── scripts/                    # Start- und Installationsskripte für Unix und Windows
 ├── streamlit_app.py            # Weboberfläche
+├── Dockerfile / compose.yaml   # plattformunabhängiger Containerstart
+├── setup-windows.cmd           # Windows-Installation per Doppelklick
+├── start-windows.cmd           # Windows-Start per Doppelklick
 ├── pyproject.toml              # Abhängigkeiten und Tool-Konfiguration
 └── Makefile                    # Kurzbefehle
 ```

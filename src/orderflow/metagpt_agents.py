@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 from functools import lru_cache
 from pathlib import Path
@@ -13,7 +14,8 @@ def _project_root() -> Path:
 
 
 def _metagpt_python() -> Path:
-    return _project_root() / ".venv-metagpt" / "bin" / "python"
+    executable = Path("Scripts/python.exe") if os.name == "nt" else Path("bin/python")
+    return _project_root() / ".venv-metagpt" / executable
 
 
 def metagpt_configured() -> bool:
@@ -51,7 +53,9 @@ def metagpt_available() -> bool:
 async def run_metagpt_review(payload: dict[str, Any]) -> dict[str, str]:
     """Startet das MetaGPT-Review in einer getrennten, kompatiblen Python-Umgebung."""
     if not metagpt_available():
-        raise RuntimeError("MetaGPT ist nicht eingerichtet. Bitte 'make setup-metagpt' ausführen.")
+        raise RuntimeError(
+            "MetaGPT ist nicht eingerichtet. Bitte das plattformspezifische Setup ausführen."
+        )
     if not metagpt_configured():
         raise RuntimeError("Bitte zuerst den API-Schlüssel in config/config2.yaml eintragen.")
 

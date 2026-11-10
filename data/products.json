@@ -1,0 +1,21 @@
+{
+  "P100": {
+    "name": "Industriepumpe",
+    "stock": 25,
+    "unit_price": 450.0,
+    "currency": "EUR"
+  },
+  "P200": {
+    "name": "Steuerungsmodul",
+    "stock": 5,
+    "unit_price": 280.0,
+    "currency": "EUR"
+  },
+  "P300": {
+    "name": "Drucksensor",
+    "stock": 100,
+    "unit_price": 89.9,
+    "currency": "EUR"
+  }
+}
+

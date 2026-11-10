@@ -1,0 +1,17 @@
+{
+  "P100": {
+    "supplier": "Pumpenwerke Nord GmbH",
+    "maximum_quantity": 100,
+    "lead_time_days": 10
+  },
+  "P200": {
+    "supplier": "Control Parts Europe AG",
+    "maximum_quantity": 50,
+    "lead_time_days": 14
+  },
+  "P300": {
+    "supplier": "Sensorik Süd KG",
+    "maximum_quantity": 500,
+    "lead_time_days": 7
+  }
+}

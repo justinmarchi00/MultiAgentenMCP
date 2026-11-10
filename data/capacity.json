@@ -1,0 +1,15 @@
+{
+  "P100": {
+    "weekly_capacity": 40,
+    "production_days": 5
+  },
+  "P200": {
+    "weekly_capacity": 20,
+    "production_days": 8
+  },
+  "P300": {
+    "weekly_capacity": 150,
+    "production_days": 3
+  }
+}
+

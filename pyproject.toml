@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orderflow-multiagent-mcp"
+version = "0.1.0"
+description = "Interaktiver BPM-Prototyp für eine agentenbasierte Auftragsabwicklung mit MetaGPT und MCP"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "mcp[cli]>=2,<3",
+  "pydantic>=2.7,<3",
+  "python-dotenv>=1,<2",
+  "streamlit>=1.55,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=0.23,<1",
+  "pytest-cov>=5,<7",
+  "ruff>=0.9,<1",
+]
+
+[project.scripts]
+orderflow-demo = "orderflow.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+

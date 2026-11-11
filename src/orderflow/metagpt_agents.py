@@ -10,6 +10,56 @@ from pathlib import Path
 from typing import Any
 
 
+def friendly_metagpt_error(stderr: str) -> str:
+    """Übersetzt technische MetaGPT-/OpenAI-Fehler in sichere Bedienhinweise."""
+    sanitized = re.sub(
+        r"sk-[A-Za-z0-9_-]{8,}",
+        "[API-Schlüssel ausgeblendet]",
+        stderr,
+    ).strip()
+    lowered = sanitized.lower()
+
+    if any(
+        marker in lowered
+        for marker in (
+            "token_invalidated",
+            "authenticationerror",
+            "incorrect api key",
+            "invalid api key",
+            "error code: 401",
+        )
+    ):
+        return (
+            "Der OpenAI-API-Schlüssel ist ungültig oder wurde deaktiviert. "
+            "Erstelle einen neuen Schlüssel und starte den Launcher mit "
+            "--replace-api-key erneut."
+        )
+    if "insufficient_quota" in lowered or "billing_hard_limit_reached" in lowered:
+        return (
+            "Das OpenAI-API-Guthaben reicht nicht aus oder das Ausgabenlimit wurde erreicht. "
+            "Prüfe Guthaben und Limits im OpenAI-Platform-Konto."
+        )
+    if "rate limit" in lowered or "error code: 429" in lowered:
+        return (
+            "Das OpenAI-API-Limit wurde vorübergehend erreicht. "
+            "Warte kurz und starte den Auftrag anschließend erneut."
+        )
+    if any(
+        marker in lowered
+        for marker in ("connection error", "apiconnectionerror", "name or service not known")
+    ):
+        return (
+            "Die OpenAI-API ist nicht erreichbar. Prüfe die Internetverbindung, "
+            "Firewall und Proxy-Einstellungen."
+        )
+
+    lines = [line.strip() for line in sanitized.splitlines() if line.strip()]
+    detail = lines[-1] if lines else "Unbekannter Fehler im MetaGPT-Prozess."
+    if len(detail) > 600:
+        detail = f"{detail[:597]}..."
+    return f"Der MetaGPT-Prozess ist fehlgeschlagen: {detail}"
+
+
 def _project_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -72,10 +122,18 @@ async def run_metagpt_review(payload: dict[str, Any]) -> dict[str, str]:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await asyncio.wait_for(
-        process.communicate(json.dumps(payload, ensure_ascii=False).encode("utf-8")),
-        timeout=120,
-    )
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(json.dumps(payload, ensure_ascii=False).encode("utf-8")),
+            timeout=120,
+        )
+    except TimeoutError as exc:
+        process.kill()
+        await process.wait()
+        raise RuntimeError(
+            "MetaGPT hat innerhalb von 120 Sekunden nicht geantwortet. "
+            "Prüfe die Internetverbindung und starte den Auftrag erneut."
+        ) from exc
     output = stdout.decode("utf-8", errors="replace")
     marker = "ORDERFLOW_METAGPT_RESULT="
     result_line = next(
@@ -84,7 +142,11 @@ async def run_metagpt_review(payload: dict[str, Any]) -> dict[str, str]:
     )
     if process.returncode != 0 or result_line is None:
         error = stderr.decode("utf-8", errors="replace").strip()
-        raise RuntimeError(error or "MetaGPT hat kein auswertbares Ergebnis geliefert.")
+        raise RuntimeError(
+            friendly_metagpt_error(error)
+            if error
+            else "MetaGPT hat kein auswertbares Ergebnis geliefert."
+        )
 
     parsed = json.loads(result_line.removeprefix(marker))
     if not isinstance(parsed, dict):

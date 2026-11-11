@@ -261,7 +261,7 @@ async def run_order_workflow(
             4,
             "MetaGPT-Team",
             "Agentenreview starten",
-            "Auftrags-, Planungs- und Validierungs-Agent erklären das Ergebnis.",
+            "Anna ordnet den Auftrag ein, Paul baut darauf auf und Vera prüft beide Beiträge.",
         )
         try:
             from orderflow.metagpt_agents import run_metagpt_review

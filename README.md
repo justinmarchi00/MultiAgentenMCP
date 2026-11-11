@@ -24,6 +24,7 @@ im Prototyp reale ERP-, CRM-, Lager- und Produktionssysteme.
 - Vier vorbereitete Demoszenarien sowie freie Eingabe
 - Regelbasierte, reproduzierbare Kernentscheidung
 - Optionale MetaGPT-Erklärung mit drei getrennt dargestellten Rollen
+- Auftragsbezogene MetaGPT-Kontextkette: Anna → Paul → Vera
 - Ereignisprotokoll und strukturierte MCP-Ergebnisse für die Evaluation
 - Durchgängig deutsche Benutzeroberfläche einschließlich übersetzter Ergebnisfelder
 - Automatisierte Tests und GitHub-Actions-Workflow
@@ -90,7 +91,25 @@ Hover-Erklärungen.
 4. Der MCP-Server ermittelt Kunden-, Bestands-, Kapazitäts-, Preis- und Termindaten.
 5. Der regelbasierte Workflow vergleicht alle vollständigen Erfüllungswege und wählt den
    schnellsten. Bei gleicher Dauer wird reproduzierbar die interne Produktion bevorzugt.
-6. Die optionalen **MetaGPT-Agenten** erklären und validieren das bereits feststehende Ergebnis.
+6. Die optionalen **MetaGPT-Agenten** arbeiten nacheinander: Anna ordnet den Auftrag ein, Paul
+   reagiert darauf und vergleicht die Erfüllungswege, Vera prüft beide Beiträge gegen die Fakten.
+
+### Gemeinsamer Kontext der MetaGPT-Rollen
+
+Die Rollen erhalten nicht lediglich dreimal denselben freien Text. Jeder Durchlauf erzeugt eine
+auftragsbezogene Kontextkette:
+
+1. **Anna – Auftragssicht:** erhält den kontrollierten Faktenblock und beschreibt Kundenwunsch,
+   Bonität und geschäftliche Folge ohne Detailrechnung.
+2. **Paul – Planungssicht:** erhält denselben Faktenblock sowie Annas Beitrag. Er vermeidet deren
+   Wiederholung, vergleicht vollständige Produktions- und Beschaffungswege und erklärt die Auswahl.
+3. **Vera – Prüfsicht:** erhält Fakten sowie beide vorherigen Beiträge. Sie gleicht Bonität,
+   Erfüllungsweg, Preis und Termin ab und benennt mögliche Widersprüche.
+
+Die Kontextkette gilt bewusst nur für einen Auftrag. Zwischen verschiedenen Aufträgen wird kein
+Langzeitgedächtnis übernommen, damit alte Kunden- oder Auftragsdaten nicht in einen neuen Vorgang
+gelangen. Die Agenten dürfen Formulierungen selbst erzeugen, aber keine Geschäftswerte erfinden oder
+die regelbasierte Entscheidung verändern.
 
 Das vollständige [Glossar](docs/glossary.md) enthält weitere fachliche Einzelbegriffe wie
 Rüstzeit, Produktionskapazität, Beschaffung, Stammdaten und zugesagten Liefertermin.
@@ -179,6 +198,26 @@ tatsächlich verwendeten Klassen `Action` und `Role` durch einen Importtest gepr
 Der API-Schlüssel wird ausschließlich in der lokalen MetaGPT-Konfiguration hinterlegt und niemals
 in dieses Repository eingecheckt. In der Weboberfläche kann danach „MetaGPT-Erklärung erstellen“
 ausgewählt werden.
+
+Wurde ein Schlüssel deaktiviert oder soll er ausgetauscht werden, lässt er sich ohne manuelles
+Bearbeiten der Konfigurationsdatei ersetzen:
+
+Linux/macOS:
+
+```bash
+./start-orderflow.sh --replace-api-key
+```
+
+Windows:
+
+```powershell
+start-windows.cmd --replace-api-key
+```
+
+Der Launcher fragt den neuen Schlüssel verdeckt ab. Alternativ kann unter Linux/macOS einmalig
+`OPENAI_API_KEY` gesetzt werden; der Launcher übernimmt den Wert in die lokale, von Git ignorierte
+Konfiguration. Eine Meldung `401 token_invalidated` bedeutet nicht, dass Linux oder MetaGPT falsch
+installiert ist, sondern dass OpenAI den verwendeten Schlüssel nicht mehr akzeptiert.
 
 ## Demoablauf
 

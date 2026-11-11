@@ -48,18 +48,27 @@ verwendet Produktstammdaten aus der simulierten Produktionsplanung:
 Samstag und Sonntag. Der zugesagte Termin ist das spätere Datum aus Kundenwunsch und frühestem
 realisierbaren Termin.
 
-Vor der Terminberechnung wählt der Orchestrator genau einen vollständigen Erfüllungsweg:
-Lagerbestand, Produktion innerhalb einer Woche, vollständige externe Beschaffung oder
-mehrwöchige interne Produktion. Reicht keiner dieser Wege für die gesamte Fehlmenge aus, wird
-kein scheinbar genauer Liefertermin ausgegeben, sondern eine manuelle Planung verlangt.
+Vor der Terminberechnung wählt der Orchestrator genau einen vollständigen Erfüllungsweg. Liegt die
+gesamte Menge auf Lager, wird sie unmittelbar bereitgestellt. Bei einer Fehlmenge werden interne
+Produktion und externe Beschaffung unabhängig geprüft und anhand ihrer Durchlaufzeit verglichen.
+Bei gleicher Dauer wird reproduzierbar die interne Produktion bevorzugt. Reicht keiner dieser Wege
+für die gesamte Fehlmenge aus, wird kein scheinbar genauer Liefertermin ausgegeben, sondern eine
+manuelle Planung verlangt.
 
 ## Koordination und Kooperation
 
-Der Orchestrator koordiniert die Reihenfolge. Agenten kooperieren indirekt über einen gemeinsamen,
+Der Orchestrator koordiniert die Reihenfolge. Agenten kooperieren über einen gemeinsamen,
 strukturierten Workflowzustand. Ergebnisse werden nicht als unkontrollierter Freitext, sondern als
 typisierte Daten weitergereicht. Das optionale MetaGPT-Team erhält erst nach Abschluss der
-MCP-Abfragen einen unveränderlichen Faktenblock. Seine Aufgabe ist die Erklärung, nicht die
-Festlegung betrieblicher Werte.
+MCP-Abfragen einen unveränderlichen Faktenblock. Danach entsteht eine auftragsbezogene
+Kontextkette: Anna ordnet den Auftrag kaufmännisch ein, Paul erhält Annas Beitrag und erklärt den
+Vergleich der Erfüllungswege, Vera erhält beide Beiträge und prüft sie gegen die strukturierten
+Fakten. Seine Aufgabe ist die Erklärung und Validierung, nicht die Festlegung betrieblicher Werte.
+
+Die Kontextkette lebt nur innerhalb eines einzelnen Workflowdurchlaufs. Die Rollen werden für
+jeden Auftrag neu erzeugt und besitzen bewusst kein auftragsübergreifendes Langzeitgedächtnis.
+Dadurch können keine Angaben eines vorherigen Kunden unkontrolliert in einen neuen Auftrag
+übernommen werden.
 
 Die Bezeichnungen in der Oberfläche und in den sichtbaren Ergebnisstrukturen sind deutsch.
 Technische Python-Bezeichner und MCP-Werkzeugnamen bleiben aus Gründen der Wartbarkeit und

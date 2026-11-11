@@ -417,14 +417,14 @@ GLOSSARY = [
     (
         "Agenten",
         "Auftrags-Agent",
-        "Prüft die Auftragseingabe und fasst Kunde, Produkt, Menge und Wunschtermin verständlich "
-        "zusammen.",
+        "Ordnet Kundenwunsch, Bonität und geschäftliche Prozessfolge ein, ohne technische "
+        "Berechnungen zu wiederholen.",
     ),
     (
         "Agenten",
         "Planungs-Agent",
-        "Bewertet Bestand, Produktionskapazität und Liefertermin und erklärt den gewählten "
-        "Erfüllungsweg.",
+        "Baut auf dem Auftrags-Agenten auf, vergleicht Produktion und Beschaffung und erklärt "
+        "den ausgewählten Erfüllungsweg.",
     ),
     (
         "Agenten",
@@ -439,7 +439,8 @@ GLOSSARY = [
     (
         "Agenten",
         "Validierungs-Agent",
-        "Kontrolliert, ob Entscheidung und Erklärung zu den ermittelten Geschäftsdaten passen.",
+        "Prüft die Aussagen beider vorherigen Agenten gegen die Geschäftsdaten und nennt "
+        "Widersprüche ausdrücklich.",
     ),
     (
         "KI",
@@ -793,21 +794,21 @@ def agent_cards(messages: dict[str, str]) -> str:
             "person",
             "Anna",
             "Auftrags-Agentin",
-            "Fasst Auftrag, Kunde, Produkt, Menge und Wunschtermin zusammen.",
+            "Ordnet den Kundenwunsch und die kaufmännische Prozessfolge ein.",
         ),
         (
             "planning_agent",
             "chart",
             "Paul",
             "Planungs-Agent",
-            "Erklärt Lager, Kapazität, Beschaffung, Preis und Liefertermin.",
+            "Reagiert auf Anna und vergleicht Lager, Produktion und Beschaffung.",
         ),
         (
             "validation_agent",
             "result",
             "Vera",
             "Validierungs-Agentin",
-            "Prüft, ob Entscheidung, Berechnung und Erklärung zusammenpassen.",
+            "Prüft Annas und Pauls Aussagen unabhängig gegen die MCP-Fakten.",
         ),
     ]
     cards = []
@@ -1493,8 +1494,9 @@ with input_column:
             value=False,
             disabled=not metagpt_ready,
             help=(
-                "MetaGPT lässt drei KI-Agenten das regelbasierte Ergebnis erklären und prüfen. "
-                "Die Geschäftswerte bleiben unverändert."
+                "MetaGPT verkettet drei KI-Rollen: Anna ordnet ein, Paul reagiert mit der "
+                "Planungsanalyse und Vera prüft beide Beiträge. Die Geschäftswerte bleiben "
+                "unverändert."
             ),
         )
         submitted = st.form_submit_button(
@@ -1650,6 +1652,11 @@ with process_column:
                 calculation_explanation(result)
             with metagpt_tab:
                 if result.metagpt_used:
+                    st.caption(
+                        "Gemeinsamer Auftragskontext: Paul baut auf Anna auf; Vera prüft beide "
+                        "Beiträge gegen die unveränderlichen MCP-Fakten. Zwischen verschiedenen "
+                        "Aufträgen wird bewusst kein Gedächtnis übernommen."
+                    )
                     st.markdown(agent_cards(result.metagpt_messages), unsafe_allow_html=True)
                 elif result.metagpt_summary:
                     st.warning(result.metagpt_summary)

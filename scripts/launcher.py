@@ -111,7 +111,7 @@ def save_api_key(api_key: str) -> None:
         CONFIG.chmod(0o600)
 
 
-def ensure_api_key(metagpt_ready: bool) -> None:
+def ensure_api_key(metagpt_ready: bool, *, force_replace: bool = False) -> None:
     if not metagpt_ready:
         return
     environment_key = os.getenv("OPENAI_API_KEY", "").strip()
@@ -119,10 +119,13 @@ def ensure_api_key(metagpt_ready: bool) -> None:
         save_api_key(environment_key)
         print("OpenAI-API-Schlüssel wurde aus der Umgebungsvariable übernommen.")
         return
-    if configured_api_key():
+    if configured_api_key() and not force_replace:
         return
 
-    print("MetaGPT benötigt für seine Erklärungen einen persönlichen OpenAI-API-Schlüssel.")
+    if force_replace:
+        print("Der gespeicherte OpenAI-API-Schlüssel wird ersetzt.")
+    else:
+        print("MetaGPT benötigt für seine Erklärungen einen persönlichen OpenAI-API-Schlüssel.")
     print("Der Schlüssel wird nur lokal in der ignorierten Datei config/config2.yaml gespeichert.")
     api_key = getpass.getpass(
         "API-Schlüssel eingeben oder mit Enter MetaGPT zunächst überspringen: "
@@ -190,6 +193,11 @@ def main() -> None:
     parser.add_argument("--setup-only", action="store_true")
     parser.add_argument("--skip-metagpt", action="store_true")
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument(
+        "--replace-api-key",
+        action="store_true",
+        help="Ersetzt den lokal gespeicherten OpenAI-API-Schlüssel.",
+    )
     arguments = parser.parse_args()
 
     require_python_311()
@@ -197,7 +205,7 @@ def main() -> None:
     metagpt_ready = False
     if not arguments.skip_metagpt:
         metagpt_ready = ensure_metagpt(base_python)
-        ensure_api_key(metagpt_ready)
+        ensure_api_key(metagpt_ready, force_replace=arguments.replace_api_key)
 
     if arguments.setup_only:
         print("OrderFlow AI ist vollständig eingerichtet.")

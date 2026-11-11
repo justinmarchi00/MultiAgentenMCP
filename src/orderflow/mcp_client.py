@@ -38,47 +38,107 @@ def _select_fulfillment(
     capacity: dict[str, Any] | None,
     procurement: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Wählt genau einen widerspruchsfreien Erfüllungsweg für den Auftrag."""
+    """Wählt den schnellsten vollständigen Erfüllungsweg für den Auftrag.
+
+    Lagerware hat immer Vorrang, weil keine zusätzliche Bereitstellung notwendig ist.
+    Bei einer Fehlmenge werden interne Produktion und externe Beschaffung unabhängig
+    voneinander bewertet. Nur Wege, die die *gesamte* Fehlmenge abdecken, kommen in
+    Betracht. Bei gleicher Dauer wird die interne Produktion bevorzugt, damit die
+    Entscheidung reproduzierbar bleibt und keine unnötige Fremdbeschaffung entsteht.
+    """
+    def duration_text(value: int) -> str:
+        unit = "Arbeitstag" if value == 1 else "Arbeitstage"
+        return f"{value} {unit}"
+
     if stock.get("available", False):
         return {
             "possible": True,
             "method": "stock",
             "duration_days": 0,
             "reason": "Die vollständige Auftragsmenge liegt auf Lager.",
+            "evaluated_routes": [{"method": "stock", "duration_days": 0}],
         }
 
-    if capacity and capacity.get("possible") and capacity.get("within_week_capacity"):
-        return {
-            "possible": True,
-            "method": "production",
-            "duration_days": int(capacity.get("production_days", 0)),
-            "reason": "Die Fehlmenge kann innerhalb der Wochenkapazität produziert werden.",
-        }
-
-    if procurement and procurement.get("possible"):
-        return {
-            "possible": True,
-            "method": "procurement",
-            "duration_days": int(procurement.get("lead_time_days", 0)),
-            "reason": "Die vollständige Fehlmenge kann extern beschafft werden.",
-        }
-
+    candidates: list[dict[str, Any]] = []
     if capacity and capacity.get("possible"):
+        candidates.append(
+            {
+                "method": "production",
+                "duration_days": max(0, int(capacity.get("production_days", 0))),
+            }
+        )
+    if procurement and procurement.get("possible"):
+        candidates.append(
+            {
+                "method": "procurement",
+                "duration_days": max(0, int(procurement.get("lead_time_days", 0))),
+            }
+        )
+
+    if candidates:
+        # Bei gleicher Dauer ist die interne Produktion die stabile Standardregel.
+        priority = {"production": 0, "procurement": 1}
+        chosen = min(
+            candidates,
+            key=lambda route: (route["duration_days"], priority[route["method"]]),
+        )
+        production = next(
+            (route for route in candidates if route["method"] == "production"), None
+        )
+        procurement_route = next(
+            (route for route in candidates if route["method"] == "procurement"), None
+        )
+
+        if production and procurement_route:
+            production_days = production["duration_days"]
+            procurement_days = procurement_route["duration_days"]
+            if chosen["method"] == "procurement":
+                reason = (
+                    "Die externe Beschaffung deckt die vollständige Fehlmenge ab. "
+                    f"Ihre Dauer beträgt {duration_text(procurement_days)}; die interne "
+                    f"Produktion benötigt {duration_text(production_days)}. Daher wird die "
+                    "schnellere externe Beschaffung gewählt."
+                )
+            elif production_days == procurement_days:
+                reason = (
+                    "Interne Produktion und externe Beschaffung benötigen jeweils "
+                    f"{duration_text(production_days)}. Bei Gleichstand wird die interne "
+                    "Produktion bevorzugt."
+                )
+            else:
+                reason = (
+                    "Die interne Produktion deckt die vollständige Fehlmenge ab. "
+                    f"Ihre Dauer beträgt {duration_text(production_days)}; die externe "
+                    f"Beschaffung benötigt {duration_text(procurement_days)}. Daher wird die "
+                    "schnellere interne Produktion gewählt."
+                )
+        elif chosen["method"] == "production":
+            reason = (
+                "Die vollständige Fehlmenge kann intern produziert werden; eine "
+                "vollständige externe Beschaffung ist nicht verfügbar."
+            )
+        else:
+            reason = (
+                "Die vollständige Fehlmenge kann extern beschafft werden; eine "
+                "vollständige interne Produktion ist nicht verfügbar."
+            )
+
         return {
             "possible": True,
-            "method": "production",
-            "duration_days": int(capacity.get("production_days", 0)),
-            "reason": (
-                "Die Fehlmenge benötigt mehr als eine Produktionswoche, kann aber "
-                "vollständig intern produziert werden."
-            ),
+            **chosen,
+            "reason": reason,
+            "evaluated_routes": candidates,
         }
 
     return {
         "possible": False,
         "method": "manual",
         "duration_days": None,
-        "reason": "Kein vollständiger Erfüllungsweg ist automatisch planbar.",
+        "reason": (
+            "Weder Lagerbestand noch interne Produktion oder externe Beschaffung "
+            "decken die vollständige Auftragsmenge ab."
+        ),
+        "evaluated_routes": [],
     }
 
 
@@ -107,12 +167,13 @@ async def evaluate_order_via_mcp(order: OrderRequest) -> dict[str, Any]:
                 {"product_id": order.product_id, "quantity": missing_quantity},
             )
 
-            if not capacity.get("within_week_capacity", False):
-                procurement = await call_tool(
-                    client,
-                    "check_procurement",
-                    {"product_id": order.product_id, "quantity": missing_quantity},
-                )
+            # Produktion und Lieferant werden immer unabhängig geprüft. Nur so kann
+            # der Orchestrator den schnellsten vollständigen Weg auswählen.
+            procurement = await call_tool(
+                client,
+                "check_procurement",
+                {"product_id": order.product_id, "quantity": missing_quantity},
+            )
 
         fulfillment = _select_fulfillment(stock, capacity, procurement)
         delivery = await call_tool(
@@ -127,6 +188,7 @@ async def evaluate_order_via_mcp(order: OrderRequest) -> dict[str, Any]:
             },
         )
         delivery["fulfillment_reason"] = fulfillment["reason"]
+        delivery["evaluated_routes"] = fulfillment["evaluated_routes"]
 
     return {
         "customer": customer,

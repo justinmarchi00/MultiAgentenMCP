@@ -5,12 +5,6 @@
     "country": "DE",
     "payment_terms_days": 30
   },
-  "C200": {
-    "name": "Test AG",
-    "credit_status": "gesperrt",
-    "country": "DE",
-    "payment_terms_days": 14
-  },
   "C300": {
     "name": "Beispieltechnik KG",
     "credit_status": "freigegeben",

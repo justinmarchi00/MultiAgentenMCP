@@ -19,6 +19,7 @@ im Prototyp reale ERP-, CRM-, Lager- und Produktionssysteme.
 - Transparente Produktionsdauer aus Rüstzeit, Tageskapazität und Fehlmenge
 - Lokales Anlegen neuer Demo-Kunden und -Produkte über die Weboberfläche
 - Vollständige Kunden- und Produktverwaltung in einem hervorgehobenen Dialogfenster
+- Tabellenaktionen direkt pro Zeile: Bearbeiten und Löschen mit klaren Vektor-Icons
 - Bestätigungspflichtiges Löschen einschließlich abhängiger Demo-Stammdaten
 - Vier vorbereitete Demoszenarien sowie freie Eingabe
 - Regelbasierte, reproduzierbare Kernentscheidung
@@ -87,7 +88,8 @@ Hover-Erklärungen.
 2. Der **Workflow-Orchestrator** koordiniert die fachlichen Schritte und Agenten.
 3. Der **MCP-Client** ruft definierte Werkzeuge des **MCP-Servers** auf.
 4. Der MCP-Server ermittelt Kunden-, Bestands-, Kapazitäts-, Preis- und Termindaten.
-5. Der regelbasierte Workflow wählt einen vollständigen Erfüllungsweg und trifft die Entscheidung.
+5. Der regelbasierte Workflow vergleicht alle vollständigen Erfüllungswege und wählt den
+   schnellsten. Bei gleicher Dauer wird reproduzierbar die interne Produktion bevorzugt.
 6. Die optionalen **MetaGPT-Agenten** erklären und validieren das bereits feststehende Ergebnis.
 
 Das vollständige [Glossar](docs/glossary.md) enthält weitere fachliche Einzelbegriffe wie
@@ -187,14 +189,20 @@ ausgewählt werden.
 5. Im Tab „Berechnung“ die Produktions-, Preis- und Terminformeln erläutern.
 6. Die drei MetaGPT-Rollen Anna, Paul und Vera miteinander vergleichen.
 7. Über „Stammdaten“ den kompakten Verwaltungsdialog öffnen.
-8. Kunden und Produkte dort anzeigen, anlegen, bearbeiten oder kontrolliert löschen.
+8. Kunden und Produkte dort über „Neu anlegen“ oberhalb der Tabelle ergänzen.
+9. Datensätze über die Bearbeiten- und Löschen-Schaltflächen rechts in jeder Zeile verwalten.
 
 | Szenario | Eingabe | Erwartete Entscheidung |
 |---|---|---|
-| Normalfall | C100, P100, 10 Stück | Auftrag bestätigen |
-| Produktion erforderlich | C100, P100, 30 Stück | Fehlmenge intern produzieren |
-| Beschaffung erforderlich | C100, P100, 80 Stück | Fehlmenge extern beschaffen |
-| Bonität gesperrt | C200, P100, 10 Stück | Manuelle Prüfung |
+| Normalfall | Menge ist vollständig auf Lager | Auftrag bestätigen |
+| Produktion erforderlich | Produktion ist der schnellste vollständige Weg | Fehlmenge intern produzieren |
+| Beschaffung erforderlich | Lieferant deckt alles schneller ab | Fehlmenge extern beschaffen |
+| Bonität nicht freigegeben | Kunde ist gesperrt oder noch in Prüfung | Manuelle Prüfung |
+
+Die konkreten Kunden, Produkte und Mengen werden aus den aktuell gepflegten Stammdaten erzeugt.
+Dadurch bleiben die Vorführungsszenarien auch nach dem Anlegen, Bearbeiten oder Löschen von
+Demodatensätzen fachlich korrekt. Ein Bonitätsszenario erscheint nur, wenn ein entsprechender
+Kunde vorhanden ist.
 
 Ein ausformulierter Vorführungsplan steht im [Demo-Leitfaden](docs/demo-guide.md).
 
@@ -220,11 +228,13 @@ Die Tageskapazität ergibt sich aus der Wochenkapazität geteilt durch die Arbei
 Bei P300 und 20 fehlenden Drucksensoren entstehen so zwei Rüst- und Planungstage plus ein
 Produktionstag, also drei Arbeitstage. Die Lieferterminberechnung überspringt Wochenenden.
 
-Eine Wochenkapazität ist dabei keine harte Auftragsgrenze. Reicht eine Woche nicht aus, prüft der
-Orchestrator zunächst eine vollständige externe Beschaffung und verwendet andernfalls eine
-mehrwöchige interne Produktion. Ein Liefertermin wird nur zugesagt, wenn mindestens ein Weg die
-gesamte Fehlmenge abdeckt. Teilmengen eines Lieferanten werden deshalb nie als vollständige
-Erfüllung gewertet.
+Eine Wochenkapazität ist dabei keine harte Auftragsgrenze. Bei einer Fehlmenge prüft der
+Orchestrator interne Produktion und externe Beschaffung immer unabhängig voneinander. Es werden
+nur Wege berücksichtigt, welche die gesamte Fehlmenge abdecken. Anschließend wird der Weg mit der
+kürzeren Durchlaufzeit ausgewählt; bei gleicher Dauer hat die interne Produktion Vorrang. Reicht
+eine Woche nicht aus, kann die interne Produktion auch mehrwöchig geplant werden. Teilmengen eines
+Lieferanten werden nie als vollständige Erfüllung gewertet. Ist kein vollständiger Weg vorhanden,
+wird kein falscher Liefertermin ausgegeben, sondern eine manuelle Prüfung verlangt.
 
 Der MCP-Server lässt sich separat mit dem offiziellen Inspector untersuchen:
 

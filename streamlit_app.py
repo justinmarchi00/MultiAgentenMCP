@@ -4,6 +4,7 @@ import asyncio
 import re
 from datetime import date, datetime, timedelta
 from html import escape
+from math import ceil
 from typing import Any
 
 import streamlit as st
@@ -202,6 +203,15 @@ st.markdown(
       .of-danger {
         padding:.75rem .85rem;border-radius:12px;background:#fff1f1;
         border:1px solid #f3c1c1;color:#783636;margin:.45rem 0 .7rem;
+      }
+      .of-data-header {
+        color:var(--muted);font-size:.7rem;font-weight:800;text-transform:uppercase;
+        letter-spacing:.04em;padding:.15rem .15rem .05rem;
+      }
+      .of-data-primary {color:var(--navy);font-weight:750;font-size:.84rem;}
+      .of-data-secondary {color:var(--muted);font-size:.72rem;margin-top:.08rem;}
+      div[data-testid="stDialog"] div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-color:#e1e9f3;background:rgba(255,255,255,.75);border-radius:13px;
       }
       @keyframes pulse {50%{transform:scale(1.08)}}
       @keyframes travel {0%{left:7%;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:92%;opacity:0}}
@@ -578,6 +588,15 @@ def money(value: float | int | None, currency: str = "EUR") -> str:
     return f"{amount} {currency}"
 
 
+def workday_count(value: Any) -> str:
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return "nicht ermittelbar"
+    unit = "Arbeitstag" if count == 1 else "Arbeitstage"
+    return f"{count} {unit}"
+
+
 def german_date(value: Any) -> str:
     if not value:
         return "–"
@@ -622,6 +641,89 @@ def next_identifier(prefix: str, records: dict[str, Any]) -> str:
 def option_index(options: dict[str, str], preferred_value: str) -> int:
     values = list(options.values())
     return values.index(preferred_value) if preferred_value in values else 0
+
+
+def build_scenario_defaults(
+    customers: dict[str, Any],
+    products: dict[str, Any],
+    capacities: dict[str, Any],
+    suppliers: dict[str, Any],
+) -> dict[str, tuple[str, str, int]]:
+    """Erzeugt belastbare Demoszenarien aus den aktuell gepflegten Stammdaten."""
+    if not customers or not products:
+        return {}
+
+    approved = [
+        identifier
+        for identifier, record in customers.items()
+        if record.get("credit_status") == "freigegeben"
+    ]
+    customer_id = approved[0] if approved else next(iter(customers))
+    scenarios: dict[str, tuple[str, str, int]] = {}
+
+    stocked_product = next(
+        (
+            (identifier, record)
+            for identifier, record in products.items()
+            if int(record.get("stock", 0)) > 0
+        ),
+        None,
+    )
+    if stocked_product:
+        product_id, record = stocked_product
+        scenarios["Normalfall"] = (
+            customer_id,
+            product_id,
+            min(10, int(record.get("stock", 0))),
+        )
+
+    for product_id, record in products.items():
+        capacity = capacities.get(product_id, {})
+        weekly_capacity = int(capacity.get("weekly_capacity", 0))
+        if weekly_capacity <= 0:
+            continue
+        supplier_limit = int(suppliers.get(product_id, {}).get("maximum_quantity", 0))
+        missing_quantity = max(1, supplier_limit + 1)
+        quantity = int(record.get("stock", 0)) + missing_quantity
+        if quantity <= 10_000:
+            scenarios["Produktion erforderlich"] = (customer_id, product_id, quantity)
+            break
+
+    for product_id, record in products.items():
+        supplier = suppliers.get(product_id, {})
+        maximum_quantity = int(supplier.get("maximum_quantity", 0))
+        lead_time = int(supplier.get("lead_time_days", 0))
+        if maximum_quantity <= 0 or lead_time <= 0:
+            continue
+        capacity = capacities.get(product_id, {})
+        weekly_capacity = int(capacity.get("weekly_capacity", 0))
+        working_days = max(1, int(capacity.get("working_days_per_week", 5)))
+        daily_capacity = weekly_capacity / working_days if weekly_capacity > 0 else 0
+        missing_quantity = maximum_quantity
+        production_days = (
+            int(capacity.get("setup_days", 0)) + ceil(missing_quantity / daily_capacity)
+            if daily_capacity > 0
+            else None
+        )
+        quantity = int(record.get("stock", 0)) + missing_quantity
+        if quantity <= 10_000 and (production_days is None or lead_time < production_days):
+            scenarios["Beschaffung erforderlich"] = (customer_id, product_id, quantity)
+            break
+
+    blocked_customer = next(
+        (
+            identifier
+            for identifier, record in customers.items()
+            if record.get("credit_status") != "freigegeben"
+        ),
+        None,
+    )
+    fallback_product = next(iter(products))
+    if blocked_customer:
+        scenarios["Bonität nicht freigegeben"] = (blocked_customer, fallback_product, 1)
+
+    scenarios["Eigene Eingabe"] = (customer_id, fallback_product, 1)
+    return scenarios
 
 
 def clear_selection_state(kind: str) -> None:
@@ -755,7 +857,7 @@ def calculation_explanation(result: Any) -> None:
             text = escape(capacity.get("calculation", ""))
         elif fulfillment_method == "procurement" and procurement:
             st.markdown("**Beschaffungsdauer**")
-            text = f"Lieferzeit: {procurement.get('lead_time_days', 0)} Arbeitstage"
+            text = f"Lieferzeit: {workday_count(procurement.get('lead_time_days', 0))}"
         elif fulfillment_method == "stock":
             st.markdown("**Bereitstellung**")
             text = "Die vollständige Menge liegt auf Lager."
@@ -774,37 +876,6 @@ def calculation_explanation(result: Any) -> None:
             f'<strong>{german_date(delivery.get("promised_date"))}</strong></div>',
             unsafe_allow_html=True,
         )
-
-
-def customer_table(customers: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
-        {
-            "Kundennummer": identifier,
-            "Unternehmen": record.get("name"),
-            "Bonität": record.get("credit_status"),
-            "Land": record.get("country"),
-            "Zahlungsziel": f"{record.get('payment_terms_days', 0)} Tage",
-        }
-        for identifier, record in customers.items()
-    ]
-
-
-def product_table(
-    products: dict[str, Any],
-    capacities: dict[str, Any],
-    suppliers: dict[str, Any],
-) -> list[dict[str, Any]]:
-    return [
-        {
-            "Produktnummer": identifier,
-            "Produkt": record.get("name"),
-            "Bestand": record.get("stock"),
-            "Stückpreis": money(record.get("unit_price")),
-            "Wochenkapazität": capacities.get(identifier, {}).get("weekly_capacity", 0),
-            "Lieferant": suppliers.get(identifier, {}).get("supplier", "–"),
-        }
-        for identifier, record in products.items()
-    ]
 
 
 @st.dialog("Begriffe einfach erklärt", width="large")
@@ -854,324 +925,466 @@ def glossary_dialog() -> None:
     )
 
 
+def _master_view(entity: str) -> tuple[str, str | None]:
+    mode = str(st.session_state.get(f"md_{entity}_mode", "list"))
+    identifier = st.session_state.get(f"md_{entity}_id")
+    return mode, str(identifier) if identifier else None
+
+
+def _set_master_view(entity: str, mode: str, identifier: str | None = None) -> None:
+    st.session_state[f"md_{entity}_mode"] = mode
+    if identifier is None:
+        st.session_state.pop(f"md_{entity}_id", None)
+    else:
+        st.session_state[f"md_{entity}_id"] = identifier
+
+
+def _master_notice(message: str, entity: str) -> None:
+    st.session_state["md_notice"] = message
+    st.session_state[f"md_{entity}_mode"] = "list"
+    st.session_state.pop(f"md_{entity}_id", None)
+    st.rerun(scope="fragment")
+
+
+def _table_header(labels: list[str], widths: list[float]) -> None:
+    columns = st.columns(widths, vertical_alignment="center")
+    for column, label in zip(columns, labels, strict=True):
+        column.markdown(
+            f'<div class="of-data-header">{escape(label)}</div>', unsafe_allow_html=True
+        )
+
+
+def _render_customer_list(customers: dict[str, Any]) -> None:
+    title_column, action_column = st.columns([5, 1.35], vertical_alignment="center")
+    title_column.markdown("#### Kunden")
+    action_column.button(
+        "Neu anlegen",
+        icon=":material/add:",
+        type="primary",
+        width="stretch",
+        key="md_add_customer",
+        on_click=_set_master_view,
+        args=("customer", "create"),
+    )
+
+    widths = [1.05, 2.15, 1.25, .65, 1.05, 1.85]
+    _table_header(
+        ["Kundennummer", "Unternehmen", "Bonität", "Land", "Zahlungsziel", "Aktionen"],
+        widths,
+    )
+    for identifier, record in customers.items():
+        with st.container(border=True):
+            columns = st.columns(widths, vertical_alignment="center")
+            columns[0].markdown(
+                f'<div class="of-data-primary">{escape(identifier)}</div>',
+                unsafe_allow_html=True,
+            )
+            columns[1].markdown(
+                f'<div class="of-data-primary">{escape(str(record.get("name", "–")))}</div>',
+                unsafe_allow_html=True,
+            )
+            columns[2].markdown(escape(str(record.get("credit_status", "–"))))
+            columns[3].markdown(escape(str(record.get("country", "–"))))
+            columns[4].markdown(f'{int(record.get("payment_terms_days", 0))} Tage')
+            edit_column, delete_column = columns[5].columns(2, gap="small")
+            edit_column.button(
+                "Bearbeiten",
+                icon=":material/edit:",
+                type="tertiary",
+                width="stretch",
+                key=f"md_edit_customer_{identifier}",
+                on_click=_set_master_view,
+                args=("customer", "edit", identifier),
+            )
+            delete_column.button(
+                "Löschen",
+                icon=":material/delete:",
+                type="tertiary",
+                width="stretch",
+                key=f"md_delete_customer_{identifier}",
+                on_click=_set_master_view,
+                args=("customer", "delete", identifier),
+            )
+
+
+def _render_customer_form(customers: dict[str, Any], mode: str, customer_id: str | None) -> None:
+    is_edit = mode == "edit"
+    if is_edit and customer_id not in customers:
+        st.error("Der ausgewählte Kunde ist nicht mehr vorhanden.")
+        st.button(
+            "Zurück zur Übersicht",
+            icon=":material/arrow_back:",
+            on_click=_set_master_view,
+            args=("customer", "list"),
+        )
+        return
+
+    record = customers.get(customer_id or "", {})
+    heading = "Kunden bearbeiten" if is_edit else "Kunden neu anlegen"
+    back_column, heading_column = st.columns([1.4, 5], vertical_alignment="center")
+    back_column.button(
+        "Zurück",
+        icon=":material/arrow_back:",
+        type="tertiary",
+        key=f"md_customer_back_{mode}",
+        on_click=_set_master_view,
+        args=("customer", "list"),
+    )
+    heading_column.markdown(f"#### {heading}")
+
+    with st.form(f"md_customer_form_{mode}_{customer_id or 'new'}", border=True):
+        identity_left, identity_right = st.columns(2)
+        if is_edit:
+            identity_left.text_input("Kundennummer", value=customer_id, disabled=True)
+        else:
+            new_customer_id = identity_left.text_input(
+                "Kundennummer", value=next_identifier("C", customers)
+            )
+        customer_name = identity_right.text_input(
+            "Unternehmensname", value=str(record.get("name", ""))
+        )
+        detail_left, detail_center, detail_right = st.columns(3)
+        credit_values = ["freigegeben", "in Prüfung", "gesperrt"]
+        current_credit = str(record.get("credit_status", "freigegeben"))
+        credit_status = detail_left.selectbox(
+            "Bonitätsstatus",
+            credit_values,
+            index=credit_values.index(current_credit) if current_credit in credit_values else 0,
+        )
+        country = detail_center.text_input("Ländercode", value=str(record.get("country", "DE")))
+        terms = detail_right.number_input(
+            "Zahlungsziel in Tagen",
+            min_value=0,
+            max_value=365,
+            value=int(record.get("payment_terms_days", 30)),
+        )
+        submitted = st.form_submit_button(
+            "Änderungen speichern" if is_edit else "Kunden anlegen",
+            icon=":material/save:" if is_edit else ":material/add:",
+            type="primary",
+            width="stretch",
+        )
+
+    if submitted:
+        try:
+            identifier = (
+                update_customer(
+                    customer_id or "",
+                    name=customer_name,
+                    credit_status=credit_status,
+                    country=country,
+                    payment_terms_days=int(terms),
+                )
+                if is_edit
+                else add_customer(
+                    new_customer_id,
+                    name=customer_name,
+                    credit_status=credit_status,
+                    country=country,
+                    payment_terms_days=int(terms),
+                )
+            )
+            clear_selection_state("customer")
+            verb = "aktualisiert" if is_edit else "angelegt"
+            _master_notice(f"Kunde {identifier} wurde {verb}.", "customer")
+        except ValueError as exc:
+            st.error(str(exc))
+
+
+def _render_customer_delete(customers: dict[str, Any], customer_id: str | None) -> None:
+    if customer_id not in customers:
+        _set_master_view("customer", "list")
+        return
+    record = customers[customer_id]
+    st.button(
+        "Zurück",
+        icon=":material/arrow_back:",
+        type="tertiary",
+        key="md_customer_delete_back",
+        on_click=_set_master_view,
+        args=("customer", "list"),
+    )
+    st.markdown("#### Kunden löschen")
+    st.markdown(
+        f'<div class="of-danger"><strong>{escape(customer_id)} · '
+        f'{escape(str(record.get("name", "")))}</strong><br>Der Kundendatensatz wird dauerhaft '
+        "aus den lokalen Demonstrationsdaten entfernt.</div>",
+        unsafe_allow_html=True,
+    )
+    confirmed = st.checkbox(
+        "Ich bestätige, dass dieser Kunde gelöscht werden soll.",
+        key=f"md_confirm_customer_{customer_id}",
+    )
+    if st.button(
+        "Kunden endgültig löschen",
+        icon=":material/delete:",
+        type="primary",
+        disabled=not confirmed,
+        width="stretch",
+        key=f"md_confirm_delete_customer_{customer_id}",
+    ):
+        try:
+            delete_customer(customer_id)
+            clear_selection_state("customer")
+            _master_notice(f"Kunde {customer_id} wurde gelöscht.", "customer")
+        except ValueError as exc:
+            st.error(str(exc))
+
+
+def _render_product_list(
+    products: dict[str, Any], capacities: dict[str, Any], suppliers: dict[str, Any]
+) -> None:
+    title_column, action_column = st.columns([5, 1.35], vertical_alignment="center")
+    title_column.markdown("#### Produkte")
+    action_column.button(
+        "Neu anlegen",
+        icon=":material/add:",
+        type="primary",
+        width="stretch",
+        key="md_add_product",
+        on_click=_set_master_view,
+        args=("product", "create"),
+    )
+
+    widths = [.8, 1.45, .75, 1, 1.1, 1.55, 1.75]
+    _table_header(
+        [
+            "Nummer",
+            "Produkt",
+            "Bestand",
+            "Stückpreis",
+            "Wochenkapazität",
+            "Lieferant",
+            "Aktionen",
+        ],
+        widths,
+    )
+    for identifier, record in products.items():
+        capacity = capacities.get(identifier, {})
+        supplier = suppliers.get(identifier, {})
+        with st.container(border=True):
+            columns = st.columns(widths, vertical_alignment="center")
+            columns[0].markdown(f"**{escape(identifier)}**")
+            columns[1].markdown(f"**{escape(str(record.get('name', '–')))}**")
+            columns[2].markdown(str(int(record.get("stock", 0))))
+            columns[3].markdown(money(record.get("unit_price")))
+            columns[4].markdown(str(int(capacity.get("weekly_capacity", 0))))
+            columns[5].markdown(escape(str(supplier.get("supplier", "–"))))
+            edit_column, delete_column = columns[6].columns(2, gap="small")
+            edit_column.button(
+                "Bearbeiten",
+                icon=":material/edit:",
+                type="tertiary",
+                width="stretch",
+                key=f"md_edit_product_{identifier}",
+                on_click=_set_master_view,
+                args=("product", "edit", identifier),
+            )
+            delete_column.button(
+                "Löschen",
+                icon=":material/delete:",
+                type="tertiary",
+                width="stretch",
+                key=f"md_delete_product_{identifier}",
+                on_click=_set_master_view,
+                args=("product", "delete", identifier),
+            )
+
+
+def _render_product_form(
+    products: dict[str, Any],
+    capacities: dict[str, Any],
+    suppliers: dict[str, Any],
+    mode: str,
+    product_id: str | None,
+) -> None:
+    is_edit = mode == "edit"
+    if is_edit and product_id not in products:
+        st.error("Das ausgewählte Produkt ist nicht mehr vorhanden.")
+        st.button(
+            "Zurück zur Übersicht",
+            icon=":material/arrow_back:",
+            on_click=_set_master_view,
+            args=("product", "list"),
+        )
+        return
+
+    record = products.get(product_id or "", {})
+    capacity = capacities.get(product_id or "", {})
+    supplier_record = suppliers.get(product_id or "", {})
+    back_column, heading_column = st.columns([1.4, 5], vertical_alignment="center")
+    back_column.button(
+        "Zurück",
+        icon=":material/arrow_back:",
+        type="tertiary",
+        key=f"md_product_back_{mode}",
+        on_click=_set_master_view,
+        args=("product", "list"),
+    )
+    heading_column.markdown("#### Produkt bearbeiten" if is_edit else "#### Produkt neu anlegen")
+
+    with st.form(f"md_product_form_{mode}_{product_id or 'new'}", border=True):
+        identity_left, identity_right = st.columns(2)
+        if is_edit:
+            identity_left.text_input("Produktnummer", value=product_id, disabled=True)
+        else:
+            new_product_id = identity_left.text_input(
+                "Produktnummer", value=next_identifier("P", products)
+            )
+        product_name = identity_right.text_input(
+            "Produktname", value=str(record.get("name", ""))
+        )
+        basic_left, basic_right = st.columns(2)
+        stock = basic_left.number_input(
+            "Lagerbestand", min_value=0, max_value=1_000_000, value=int(record.get("stock", 0))
+        )
+        price = basic_right.number_input(
+            "Stückpreis in EUR",
+            min_value=0.0,
+            value=float(record.get("unit_price", 100.0)),
+            step=1.0,
+        )
+        production_left, production_center, production_right = st.columns(3)
+        weekly_capacity = production_left.number_input(
+            "Wochenkapazität",
+            min_value=0,
+            max_value=1_000_000,
+            value=int(capacity.get("weekly_capacity", 50)),
+        )
+        setup_days = production_center.number_input(
+            "Rüst- und Planungstage",
+            min_value=0,
+            max_value=30,
+            value=int(capacity.get("setup_days", 1)),
+        )
+        working_days = production_right.number_input(
+            "Arbeitstage pro Woche",
+            min_value=1,
+            max_value=7,
+            value=int(capacity.get("working_days_per_week", 5)),
+        )
+        supplier_left, supplier_center, supplier_right = st.columns(3)
+        supplier_name = supplier_left.text_input(
+            "Lieferant (optional)", value=str(supplier_record.get("supplier", ""))
+        )
+        maximum_quantity = supplier_center.number_input(
+            "Maximale Bezugsmenge",
+            min_value=0,
+            value=int(supplier_record.get("maximum_quantity", 0)),
+        )
+        lead_time = supplier_right.number_input(
+            "Lieferzeit in Arbeitstagen",
+            min_value=0,
+            value=int(supplier_record.get("lead_time_days", 0)),
+        )
+        submitted = st.form_submit_button(
+            "Änderungen speichern" if is_edit else "Produkt anlegen",
+            icon=":material/save:" if is_edit else ":material/add:",
+            type="primary",
+            width="stretch",
+        )
+
+    if submitted:
+        arguments = {
+            "name": product_name,
+            "stock": int(stock),
+            "unit_price": float(price),
+            "weekly_capacity": int(weekly_capacity),
+            "setup_days": int(setup_days),
+            "working_days_per_week": int(working_days),
+            "supplier": supplier_name,
+            "maximum_quantity": int(maximum_quantity),
+            "lead_time_days": int(lead_time),
+        }
+        try:
+            identifier = (
+                update_product(product_id or "", **arguments)
+                if is_edit
+                else add_product(new_product_id, **arguments)
+            )
+            clear_selection_state("product")
+            verb = "aktualisiert" if is_edit else "angelegt"
+            _master_notice(f"Produkt {identifier} wurde {verb}.", "product")
+        except ValueError as exc:
+            st.error(str(exc))
+
+
+def _render_product_delete(products: dict[str, Any], product_id: str | None) -> None:
+    if product_id not in products:
+        _set_master_view("product", "list")
+        return
+    record = products[product_id]
+    st.button(
+        "Zurück",
+        icon=":material/arrow_back:",
+        type="tertiary",
+        key="md_product_delete_back",
+        on_click=_set_master_view,
+        args=("product", "list"),
+    )
+    st.markdown("#### Produkt löschen")
+    st.markdown(
+        f'<div class="of-danger"><strong>{escape(product_id)} · '
+        f'{escape(str(record.get("name", "")))}</strong><br>Produkt, Kapazitäts- und '
+        "Lieferantendaten werden gemeinsam entfernt.</div>",
+        unsafe_allow_html=True,
+    )
+    confirmed = st.checkbox(
+        "Ich bestätige, dass dieses Produkt gelöscht werden soll.",
+        key=f"md_confirm_product_{product_id}",
+    )
+    if st.button(
+        "Produkt endgültig löschen",
+        icon=":material/delete:",
+        type="primary",
+        disabled=not confirmed,
+        width="stretch",
+        key=f"md_confirm_delete_product_{product_id}",
+    ):
+        try:
+            delete_product(product_id)
+            clear_selection_state("product")
+            _master_notice(f"Produkt {product_id} wurde gelöscht.", "product")
+        except ValueError as exc:
+            st.error(str(exc))
+
+
 @st.dialog("Stammdatenverwaltung", width="large")
 def master_data_dialog() -> None:
     customers = list_customers()
     products = list_products()
     capacities = list_capacity()
     suppliers = list_suppliers()
-    customer_options = {
-        f"{identifier} · {record['name']}": identifier for identifier, record in customers.items()
-    }
-    product_options = {
-        f"{identifier} · {record['name']}": identifier for identifier, record in products.items()
-    }
-
     st.caption("Lokale Demonstrationsdaten für CRM, Lager, Produktion und Einkauf")
+    if notice := st.session_state.pop("md_notice", None):
+        st.toast(notice, icon=":material/check_circle:")
     customer_tab, product_tab = st.tabs(["Kunden", "Produkte"])
 
     with customer_tab:
-        customer_action = st.radio(
-            "Aktion",
-            ["Übersicht", "Neu anlegen", "Bearbeiten", "Löschen"],
-            horizontal=True,
-            key="customer_action",
-            label_visibility="collapsed",
-        )
-        if customer_action == "Übersicht":
-            st.dataframe(customer_table(customers), width="stretch", hide_index=True)
-        elif customer_action == "Neu anlegen":
-            with st.form("create_customer", border=False):
-                customer_left, customer_right = st.columns(2)
-                new_customer_id = customer_left.text_input(
-                    "Kundennummer", value=next_identifier("C", customers)
-                )
-                new_customer_name = customer_right.text_input("Unternehmensname")
-                detail_left, detail_center, detail_right = st.columns(3)
-                new_credit_status = detail_left.selectbox(
-                    "Bonitätsstatus", ["freigegeben", "in Prüfung", "gesperrt"]
-                )
-                new_country = detail_center.text_input("Ländercode", value="DE")
-                new_terms = detail_right.number_input(
-                    "Zahlungsziel in Tagen", min_value=0, max_value=365, value=30
-                )
-                create_customer = st.form_submit_button(
-                    "Kunden anlegen", type="primary", width="stretch"
-                )
-            if create_customer:
-                try:
-                    identifier = add_customer(
-                        new_customer_id,
-                        name=new_customer_name,
-                        credit_status=new_credit_status,
-                        country=new_country,
-                        payment_terms_days=int(new_terms),
-                    )
-                    clear_selection_state("customer")
-                    st.session_state["notice"] = f"Kunde {identifier} wurde angelegt."
-                    st.rerun()
-                except ValueError as exc:
-                    st.error(str(exc))
-        elif customer_action == "Bearbeiten":
-            edit_customer_label = st.selectbox(
-                "Kunde auswählen", list(customer_options), key="edit_customer"
-            )
-            customer_id = customer_options[edit_customer_label]
-            record = customers[customer_id]
-            with st.form("update_customer", border=False):
-                edit_name = st.text_input("Unternehmensname", value=record.get("name", ""))
-                edit_left, edit_center, edit_right = st.columns(3)
-                credit_values = ["freigegeben", "in Prüfung", "gesperrt"]
-                edit_credit = edit_left.selectbox(
-                    "Bonitätsstatus",
-                    credit_values,
-                    index=(
-                        credit_values.index(record.get("credit_status"))
-                        if record.get("credit_status") in credit_values
-                        else 0
-                    ),
-                )
-                edit_country = edit_center.text_input(
-                    "Ländercode", value=record.get("country", "DE")
-                )
-                edit_terms = edit_right.number_input(
-                    "Zahlungsziel in Tagen",
-                    min_value=0,
-                    max_value=365,
-                    value=int(record.get("payment_terms_days", 30)),
-                )
-                save_customer = st.form_submit_button(
-                    "Änderungen speichern", type="primary", width="stretch"
-                )
-            if save_customer:
-                try:
-                    update_customer(
-                        customer_id,
-                        name=edit_name,
-                        credit_status=edit_credit,
-                        country=edit_country,
-                        payment_terms_days=int(edit_terms),
-                    )
-                    clear_selection_state("customer")
-                    st.session_state["notice"] = f"Kunde {customer_id} wurde aktualisiert."
-                    st.rerun()
-                except ValueError as exc:
-                    st.error(str(exc))
+        customer_mode, selected_customer = _master_view("customer")
+        if customer_mode == "list":
+            _render_customer_list(customers)
+        elif customer_mode in {"create", "edit"}:
+            _render_customer_form(customers, customer_mode, selected_customer)
         else:
-            delete_customer_label = st.selectbox(
-                "Kunde auswählen", list(customer_options), key="delete_customer"
-            )
-            customer_id = customer_options[delete_customer_label]
-            customer_name = customers[customer_id].get("name", "")
-            st.markdown(
-                f'<div class="of-danger"><strong>{escape(customer_id)} · '
-                f'{escape(customer_name)}</strong><br>Der Kundendatensatz wird dauerhaft aus '
-                "den lokalen Demonstrationsdaten entfernt.</div>",
-                unsafe_allow_html=True,
-            )
-            confirm_customer = st.checkbox(
-                "Löschen dieses Kunden ausdrücklich bestätigen.",
-                key="confirm_delete_customer",
-            )
-            if st.button(
-                "Kunden löschen",
-                disabled=not confirm_customer,
-                width="stretch",
-                key="delete_customer_button",
-            ):
-                try:
-                    delete_customer(customer_id)
-                    clear_selection_state("customer")
-                    st.session_state["notice"] = f"Kunde {customer_id} wurde gelöscht."
-                    st.rerun()
-                except ValueError as exc:
-                    st.error(str(exc))
+            _render_customer_delete(customers, selected_customer)
 
     with product_tab:
-        product_action = st.radio(
-            "Aktion",
-            ["Übersicht", "Neu anlegen", "Bearbeiten", "Löschen"],
-            horizontal=True,
-            key="product_action",
-            label_visibility="collapsed",
-        )
-        if product_action == "Übersicht":
-            st.dataframe(
-                product_table(products, capacities, suppliers),
-                width="stretch",
-                hide_index=True,
+        product_mode, selected_product = _master_view("product")
+        if product_mode == "list":
+            _render_product_list(products, capacities, suppliers)
+        elif product_mode in {"create", "edit"}:
+            _render_product_form(
+                products, capacities, suppliers, product_mode, selected_product
             )
-        elif product_action == "Neu anlegen":
-            with st.form("create_product", border=False):
-                identity_left, identity_right = st.columns(2)
-                new_product_id = identity_left.text_input(
-                    "Produktnummer", value=next_identifier("P", products)
-                )
-                new_product_name = identity_right.text_input("Produktname")
-                basic_left, basic_right = st.columns(2)
-                new_stock = basic_left.number_input(
-                    "Lagerbestand", min_value=0, max_value=1_000_000, value=0
-                )
-                new_price = basic_right.number_input(
-                    "Stückpreis in EUR", min_value=0.0, value=100.0, step=1.0
-                )
-                production_left, production_center, production_right = st.columns(3)
-                new_capacity = production_left.number_input(
-                    "Wochenkapazität", min_value=0, max_value=1_000_000, value=50
-                )
-                new_setup = production_center.number_input(
-                    "Rüst- und Planungstage", min_value=0, max_value=30, value=1
-                )
-                new_workdays = production_right.number_input(
-                    "Arbeitstage pro Woche", min_value=1, max_value=7, value=5
-                )
-                supplier_left, supplier_center, supplier_right = st.columns(3)
-                new_supplier = supplier_left.text_input("Lieferant (optional)")
-                new_maximum = supplier_center.number_input(
-                    "Maximale Bezugsmenge", min_value=0, value=0
-                )
-                new_lead_time = supplier_right.number_input(
-                    "Lieferzeit in Arbeitstagen", min_value=0, value=0
-                )
-                create_product = st.form_submit_button(
-                    "Produkt anlegen", type="primary", width="stretch"
-                )
-            if create_product:
-                try:
-                    identifier = add_product(
-                        new_product_id,
-                        name=new_product_name,
-                        stock=int(new_stock),
-                        unit_price=float(new_price),
-                        weekly_capacity=int(new_capacity),
-                        setup_days=int(new_setup),
-                        working_days_per_week=int(new_workdays),
-                        supplier=new_supplier,
-                        maximum_quantity=int(new_maximum),
-                        lead_time_days=int(new_lead_time),
-                    )
-                    clear_selection_state("product")
-                    st.session_state["notice"] = f"Produkt {identifier} wurde angelegt."
-                    st.rerun()
-                except ValueError as exc:
-                    st.error(str(exc))
-        elif product_action == "Bearbeiten":
-            edit_product_label = st.selectbox(
-                "Produkt auswählen", list(product_options), key="edit_product"
-            )
-            product_id = product_options[edit_product_label]
-            record = products[product_id]
-            capacity = capacities.get(product_id, {})
-            supplier = suppliers.get(product_id, {})
-            with st.form("update_product", border=False):
-                identity_left, identity_right = st.columns(2)
-                edit_product_name = identity_left.text_input(
-                    "Produktname", value=record.get("name", "")
-                )
-                identity_right.text_input(
-                    "Produktnummer", value=product_id, disabled=True
-                )
-                basic_left, basic_right = st.columns(2)
-                edit_stock = basic_left.number_input(
-                    "Lagerbestand",
-                    min_value=0,
-                    max_value=1_000_000,
-                    value=int(record.get("stock", 0)),
-                )
-                edit_price = basic_right.number_input(
-                    "Stückpreis in EUR",
-                    min_value=0.0,
-                    value=float(record.get("unit_price", 0.0)),
-                    step=1.0,
-                )
-                production_left, production_center, production_right = st.columns(3)
-                edit_capacity = production_left.number_input(
-                    "Wochenkapazität",
-                    min_value=0,
-                    max_value=1_000_000,
-                    value=int(capacity.get("weekly_capacity", 0)),
-                )
-                edit_setup = production_center.number_input(
-                    "Rüst- und Planungstage",
-                    min_value=0,
-                    max_value=30,
-                    value=int(capacity.get("setup_days", 0)),
-                )
-                edit_workdays = production_right.number_input(
-                    "Arbeitstage pro Woche",
-                    min_value=1,
-                    max_value=7,
-                    value=int(capacity.get("working_days_per_week", 5)),
-                )
-                supplier_left, supplier_center, supplier_right = st.columns(3)
-                edit_supplier = supplier_left.text_input(
-                    "Lieferant", value=supplier.get("supplier", "")
-                )
-                edit_maximum = supplier_center.number_input(
-                    "Maximale Bezugsmenge",
-                    min_value=0,
-                    value=int(supplier.get("maximum_quantity", 0)),
-                )
-                edit_lead_time = supplier_right.number_input(
-                    "Lieferzeit in Arbeitstagen",
-                    min_value=0,
-                    value=int(supplier.get("lead_time_days", 0)),
-                )
-                save_product = st.form_submit_button(
-                    "Änderungen speichern", type="primary", width="stretch"
-                )
-            if save_product:
-                try:
-                    update_product(
-                        product_id,
-                        name=edit_product_name,
-                        stock=int(edit_stock),
-                        unit_price=float(edit_price),
-                        weekly_capacity=int(edit_capacity),
-                        setup_days=int(edit_setup),
-                        working_days_per_week=int(edit_workdays),
-                        supplier=edit_supplier,
-                        maximum_quantity=int(edit_maximum),
-                        lead_time_days=int(edit_lead_time),
-                    )
-                    clear_selection_state("product")
-                    st.session_state["notice"] = f"Produkt {product_id} wurde aktualisiert."
-                    st.rerun()
-                except ValueError as exc:
-                    st.error(str(exc))
         else:
-            delete_product_label = st.selectbox(
-                "Produkt auswählen", list(product_options), key="delete_product"
-            )
-            product_id = product_options[delete_product_label]
-            product_name = products[product_id].get("name", "")
-            st.markdown(
-                f'<div class="of-danger"><strong>{escape(product_id)} · '
-                f'{escape(product_name)}</strong><br>Produkt, Kapazitäts- und Lieferantendaten '
-                "werden gemeinsam entfernt.</div>",
-                unsafe_allow_html=True,
-            )
-            confirm_product = st.checkbox(
-                "Löschen dieses Produkts ausdrücklich bestätigen.",
-                key="confirm_delete_product",
-            )
-            if st.button(
-                "Produkt löschen",
-                disabled=not confirm_product,
-                width="stretch",
-                key="delete_product_button",
-            ):
-                try:
-                    delete_product(product_id)
-                    clear_selection_state("product")
-                    st.session_state["notice"] = f"Produkt {product_id} wurde gelöscht."
-                    st.rerun()
-                except ValueError as exc:
-                    st.error(str(exc))
+            _render_product_delete(products, selected_product)
 
 
 customers = list_customers()
 products = list_products()
+capacities = list_capacity()
+suppliers = list_suppliers()
 metagpt_installed = metagpt_available()
 metagpt_ready = metagpt_installed and metagpt_configured()
 customer_options = {
@@ -1220,25 +1433,13 @@ input_column, process_column = st.columns([0.72, 2.28], gap="medium")
 
 with input_column:
     st.subheader("Auftrag erfassen")
+    scenario_defaults = build_scenario_defaults(customers, products, capacities, suppliers)
     scenario = st.selectbox(
         "Testszenario",
-        [
-            "Normalfall",
-            "Produktion erforderlich",
-            "Beschaffung erforderlich",
-            "Bonität gesperrt",
-            "Eigene Eingabe",
-        ],
+        list(scenario_defaults),
         help="Wählt passende Beispieldaten für die Präsentation vor.",
     )
-    defaults = {
-        "Normalfall": ("C100", "P100", 10),
-        "Produktion erforderlich": ("C100", "P100", 30),
-        "Beschaffung erforderlich": ("C100", "P100", 80),
-        "Bonität gesperrt": ("C200", "P100", 10),
-        "Eigene Eingabe": ("C300", "P200", 8),
-    }
-    default_customer, default_product, default_quantity = defaults[scenario]
+    default_customer, default_product, default_quantity = scenario_defaults[scenario]
 
     with st.form("order_form"):
         customer_label = st.selectbox(
@@ -1408,7 +1609,7 @@ with process_column:
                 (
                     "sofort"
                     if result.delivery.get("fulfillment_method") == "stock"
-                    else f"{result.delivery.get('duration_days', 0)} Arbeitstage"
+                    else workday_count(result.delivery.get("duration_days", 0))
                     if result.delivery.get("fulfillment_possible")
                     else "nicht ermittelbar"
                 ),

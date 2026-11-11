@@ -41,6 +41,15 @@ def _format_date(value: Any) -> str:
         return "nicht ermittelbar"
 
 
+def _format_duration(value: Any) -> str:
+    try:
+        duration = int(value)
+    except (TypeError, ValueError):
+        return "nicht ermittelbar"
+    unit = "Arbeitstag" if duration == 1 else "Arbeitstage"
+    return f"{duration} {unit}"
+
+
 def _determine_decision(facts: dict[str, Any]) -> tuple[WorkflowDecision, str]:
     customer = facts["customer"]
     stock = facts["stock"]
@@ -72,7 +81,8 @@ def _determine_decision(facts: dict[str, Any]) -> tuple[WorkflowDecision, str]:
         )
         return (
             WorkflowDecision.PRODUCTION_REQUIRED,
-            f"Die Fehlmenge kann in {duration} Arbeitstagen produziert werden. {schedule_note}",
+            f"{delivery.get('fulfillment_reason', 'Die Fehlmenge wird intern produziert.')} "
+            f"Gewählte Durchlaufzeit: {_format_duration(duration)}. {schedule_note}",
         )
     if fulfillment_method == "procurement":
         schedule_note = (
@@ -82,8 +92,8 @@ def _determine_decision(facts: dict[str, Any]) -> tuple[WorkflowDecision, str]:
         )
         return (
             WorkflowDecision.PROCUREMENT_REQUIRED,
-            "Der Bestand und die interne Kapazität reichen nicht aus; "
-            f"die Fehlmenge kann extern beschafft werden. {schedule_note}",
+            f"{delivery.get('fulfillment_reason', 'Die Fehlmenge wird extern beschafft.')} "
+            f"{schedule_note}",
         )
     return (
         WorkflowDecision.MANUAL_REVIEW,

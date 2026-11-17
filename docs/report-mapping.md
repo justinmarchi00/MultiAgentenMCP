@@ -3,6 +3,11 @@
 Die folgende Struktur hält den IT-bezogenen Teil kompakt und eignet sich für eine insgesamt auf
 15 Seiten begrenzte Ausarbeitung.
 
+Eine bereits ausformulierte, fachlich abgeglichene Textgrundlage steht unter
+[IT-bezogener Teil der Ausarbeitung](it-ausarbeitung.md). Sie unterscheidet bewusst zwischen den
+logischen Prozessrollen im Workflow und den tatsächlich als MetaGPT-Rollen implementierten
+Agenten Anna, Paul und Vera.
+
 ## 4 Analyse der Multi-Agentenplattform und IT-Konzept
 
 ### 4.1 Architektur von MetaGPT

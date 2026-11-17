@@ -32,6 +32,19 @@ nachvollziehbar bearbeitet und ohne ein Sprachmodell reproduzierbare Ergebnisse 
 - **Fehlerrobustheit:** Werden fehlende oder gesperrte Daten kontrolliert behandelt?
 - **Erweiterbarkeit:** Lassen sich Werkzeuge oder reale Adapter ergänzen, ohne die UI umzubauen?
 
+## Durchgeführte technische Prüfung
+
+Am 17. November 2026 wurde der vollständige Prüfbefehl `make check` unter macOS mit Python 3.11.18
+ausgeführt. Das Linting mit Ruff meldete keine Fehler. Alle 32 automatisierten Tests wurden
+erfolgreich abgeschlossen. Die gemessene Codeabdeckung betrug insgesamt 69 Prozent.
+
+Damit sind die regelbasierte Workflowentscheidung, die MCP-Werkzeuge, wichtige Fehlerfälle, die
+Terminberechnung, die Stammdatenverwaltung und die Bildung der MetaGPT-Kontextkette automatisiert
+abgesichert. Ein echter API-Aufruf des verwendeten Sprachmodells ist nicht Teil der Testsuite. Das
+würde laufende Kosten verursachen und könnte wegen unterschiedlicher Formulierungen nicht in
+gleicher Weise reproduziert werden. Die Qualität der live erzeugten Texte wird deshalb ergänzend
+in der Demonstration beurteilt.
+
 ## Grenzen der Evaluation
 
 Die Testdaten sind klein und synthetisch. Es werden weder reale Schnittstellen noch Lastverhalten,

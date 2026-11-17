@@ -347,3 +347,20 @@ Die technische Umsetzung eignet sich insbesondere als Grundlage für:
 
 Eine kompakte Zuordnung zu den Kapiteln der Ausarbeitung befindet sich in
 [Kapitelzuordnung](docs/report-mapping.md).
+
+### Stand der IT-bezogenen Ausarbeitungspunkte
+
+| Geforderter Aspekt | Umsetzung und Nachweis | Stand |
+|---|---|---|
+| Architektur und Agentenmodell | Architekturübersicht, logische Prozessrollen und echte MetaGPT-Rollen sind voneinander abgegrenzt | fertig dokumentiert |
+| Werkzeuge und Schnittstellen | Sechs MCP-Werkzeuge sowie Client, Server und strukturierte Rückgaben sind beschrieben | fertig dokumentiert |
+| Integrationsmöglichkeiten | Zuordnung zu CRM, ERP, Lager, PPS/MES und Einkauf sowie mögliche reale Adapter | fertig dokumentiert |
+| Agentenkoordination und Kooperation | Orchestrator, gemeinsamer Workflowzustand und Kontextkette Anna → Paul → Vera | fertig dokumentiert |
+| Technische Umsetzung und Demo | Komponenten, Startwege, Demoszenarien und Vorführungsplan | fertig dokumentiert |
+| Evaluation | 32 automatisierte Tests erfolgreich, 69 Prozent Codeabdeckung; Grenzen sind benannt | fertig dokumentiert |
+
+Die ausformulierte Grundlage für die Kapitel 4 und 5 steht in
+[IT-bezogene Ausarbeitung](docs/it-ausarbeitung.md). Sie kann in das gemeinsame Dokument übernommen
+und dort an Seitennummerierung, Abbildungen und den Zitierstil angepasst werden. Ein Live-Aufruf
+von MetaGPT gehört bewusst nicht zur automatisierten Testsuite und muss bei der Vorführung separat
+bewertet werden.
